@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "479261123124",
+    "firebase_url": "https://wallapp-611ae.firebaseio.com",
+    "project_id": "wallapp-611ae",
+    "storage_bucket": "wallapp-611ae.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:479261123124:android:6eb72dcfa5a632f37da061",
+        "android_client_info": {
+          "package_name": "com.sky.wallapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "479261123124-schp1f4pfo68qef98rj2l2q1srhcaj5g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOtyiLIz8AEA8MOauKOqsdiDVhVvg6H58"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "479261123124-schp1f4pfo68qef98rj2l2q1srhcaj5g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

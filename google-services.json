@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "1025699317685",
+    "firebase_url": "https://wallpaper-7b384.firebaseio.com",
+    "project_id": "wallpaper-7b384",
+    "storage_bucket": "wallpaper-7b384.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1025699317685:android:2b7485d33438406a2fbbfc",
+        "android_client_info": {
+          "package_name": "com.sky.wallapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1025699317685-e53fb9f0bftnjujv9bnfra7vepgdkld2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC19NDpax-6AOSVM1gYAcYYarqb1bbZ-48"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1025699317685-e53fb9f0bftnjujv9bnfra7vepgdkld2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

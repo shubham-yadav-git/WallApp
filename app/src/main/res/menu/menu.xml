@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_search"
+        android:title="Search"
+        android:icon="@drawable/ic_action_seacrh"
+        app:showAsAction="always"
+        app:actionViewClass="android.widget.SearchView"/>
+  <!--  <item
+        android:id="@+id/action_sort"
+        app:showAsAction="always"
+        android:icon="@drawable/ic_action_short_white"
+        android:title="Sort"/>-->
+    <item
+        android:id="@+id/categories"
+        android:icon="@drawable/ic_action_category_white"
+        app:showAsAction="always"
+        android:title="Categories"/>
+
+
+
+</menu>
