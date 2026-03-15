@@ -50,7 +50,7 @@
                 style="@style/Widget.Material3.Button.TextButton.Icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Save"
+                android:text="@string/save"
                 app:icon="@drawable/ic_save_black_24dp"
                 app:iconTint="@color/onSurfaceVariant"
                 android:textColor="@color/onSurfaceVariant" />
@@ -60,7 +60,7 @@
                 style="@style/Widget.Material3.Button.TextButton.Icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Share"
+                android:text="@string/share"
                 app:icon="@drawable/ic_share_white_24dp"
                 app:iconTint="@color/onSurfaceVariant"
                 android:textColor="@color/onSurfaceVariant" />
@@ -70,7 +70,7 @@
                 style="@style/Widget.Material3.Button.TonalButton.Icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Set Wallpaper"
+                android:text="@string/set_wallpaper"
                 app:icon="@drawable/ic_wallpaper_white_24dp"
                 app:cardCornerRadius="20dp" />
 

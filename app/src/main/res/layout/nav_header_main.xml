@@ -22,7 +22,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="Wallpaper App"
+        android:text="@string/wallpaper_app"
         android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
         android:textColor="@color/onPrimaryContainer"
         app:layout_constraintStart_toStartOf="parent"
