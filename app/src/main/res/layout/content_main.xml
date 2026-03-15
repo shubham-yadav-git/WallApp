@@ -13,7 +13,7 @@
         android:layout_height="0dp"
         android:padding="4dp"
         android:clipToPadding="false"
-        app:layoutManager="androidx.recyclerview.widget.StaggeredGridLayoutManager"
+        app:layoutManager="com.sky.wallapp.WrapStaggeredGridLayoutManager"
         app:spanCount="2"
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"

@@ -15,6 +15,7 @@ import androidx.appcompat.widget.SearchView
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.GravityCompat
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -86,13 +87,12 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         firebaseRecyclerAdapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
-                // Keep track of load state using a tag on the itemView
                 holder.itemView.tag = false 
 
                 Glide.with(this@MainActivity)
                     .load(model.image)
                     .centerCrop()
-                    .override(200, 300) // Much smaller size for thumbnails
+                    .override(200, 300)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .placeholder(R.color.surfaceVariant)
                     .error(R.mipmap.ic_launcher_round)
@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                         }
 
                         override fun onResourceReady(resource: Drawable, model: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean): Boolean {
-                            holder.itemView.tag = true // Mark as loaded
+                            holder.itemView.tag = true 
                             return false
                         }
                     })
@@ -115,7 +115,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     if (isLoaded) {
                         val intent = Intent(this@MainActivity, ImageActivity::class.java).apply {
                             putExtra("title", model.title)
-                            putExtra("image", model.image) // Passing URL to load full quality in ImageActivity
+                            putExtra("image", model.image)
                         }
                         startActivity(intent)
                     } else {
@@ -129,6 +129,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 return ViewHolder(view)
             }
         }
+        
+        // Fix scroll position loss by waiting for data to load before restoring state
+        firebaseRecyclerAdapter?.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
         
         firebaseRecyclerAdapter?.startListening()
         binding.appBarMain.contentMain.recyclerView.adapter = firebaseRecyclerAdapter
