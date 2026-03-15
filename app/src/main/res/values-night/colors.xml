@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Muted Material 3 Dark Palette -->
+    <color name="primary">#B0A2CF</color> <!-- Dull Purple -->
+    <color name="onPrimary">#2A1752</color>
+    <color name="primaryContainer">#3E2B6E</color>
+    <color name="onPrimaryContainer">#D9C7FF</color>
+
+    <color name="secondary">#A9A1B8</color> <!-- Dull Lavender -->
+    <color name="onSecondary">#282236</color>
+    <color name="secondaryContainer">#3F394D</color>
+    <color name="onSecondaryContainer">#D7CDE7</color>
+
+    <color name="background">#121214</color> <!-- Deeper, duller background -->
+    <color name="onBackground">#C9C5C9</color>
+    <color name="surface">#18181B</color> <!-- Muted surface -->
+    <color name="onSurface">#C9C5C9</color>
+    <color name="surfaceVariant">#242429</color> <!-- Dull variant -->
+    <color name="onSurfaceVariant">#A19DA6</color>
+    <color name="outline">#74707A</color>
+
+    <!-- Legacy support -->
+    <color name="colorPrimary">@color/primary</color>
+    <color name="colorPrimaryDark">#121214</color>
+    <color name="colorAccent">@color/secondary</color>
+</resources>

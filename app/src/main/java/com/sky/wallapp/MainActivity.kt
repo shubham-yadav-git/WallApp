@@ -1,33 +1,27 @@
 package com.sky.wallapp
 
-import android.content.DialogInterface
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
-import android.view.View
 import android.view.ViewGroup
-import android.widget.SearchView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.ActionBarDrawerToggle
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SearchView
+import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.GravityCompat
-import androidx.core.view.MenuItemCompat
-import androidx.drawerlayout.widget.DrawerLayout
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.firebase.ui.database.FirebaseRecyclerAdapter
 import com.firebase.ui.database.FirebaseRecyclerOptions
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationView
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.Query
 import com.sky.wallapp.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -56,10 +50,22 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         firebaseDatabase = FirebaseDatabase.getInstance()
         mRef = firebaseDatabase?.getReference("random")
+        
+        firebaseDataLoad()
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    binding.drawerLayout.closeDrawer(GravityCompat.START)
+                } else {
+                    showExitDialog()
+                }
+            }
+        })
     }
 
     private fun firebaseDataLoad() {
-        staggeredGridLayoutManager = StaggeredGridLayoutManager(3, LinearLayoutManager.VERTICAL)
+        staggeredGridLayoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
         binding.appBarMain.contentMain.recyclerView.apply {
             setHasFixedSize(true)
             layoutManager = staggeredGridLayoutManager
@@ -71,9 +77,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         firebaseRecyclerAdapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
-                val url = model.image
                 Glide.with(this@MainActivity)
-                    .load(url)
+                    .load(model.image)
                     .thumbnail(Glide.with(this@MainActivity).load(R.drawable.load))
                     .error(R.mipmap.ic_launcher_round)
                     .transition(DrawableTransitionOptions.withCrossFade(1000))
@@ -99,12 +104,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun firebaseSearch(searchText: String) {
-        staggeredGridLayoutManager = StaggeredGridLayoutManager(3, LinearLayoutManager.VERTICAL)
-        binding.appBarMain.contentMain.recyclerView.apply {
-            setHasFixedSize(true)
-            layoutManager = staggeredGridLayoutManager
-        }
-
         val query = searchText.lowercase()
         val firebaseSearchQuery = mRef?.orderByChild("search")?.startAt(query)?.endAt(query + "\uf8ff")
 
@@ -114,9 +113,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         firebaseRecyclerAdapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
-                val url = model.image
                 Glide.with(this@MainActivity)
-                    .load(url)
+                    .load(model.image)
                     .thumbnail(Glide.with(this@MainActivity).load(R.drawable.load))
                     .error(R.mipmap.ic_launcher_round)
                     .transition(DrawableTransitionOptions.withCrossFade(1000))
@@ -143,13 +141,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onStart() {
         super.onStart()
-        firebaseDataLoad()
-        firebaseRecyclerAdapter?.stopListening()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        firebaseDataLoad()
         firebaseRecyclerAdapter?.startListening()
     }
 
@@ -161,8 +152,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu, menu)
         val menuItem = menu.findItem(R.id.action_search)
-        val searchView = MenuItemCompat.getActionView(menuItem) as SearchView
-        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+        val searchView = menuItem.actionView as? SearchView
+        searchView?.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(s: String): Boolean {
                 firebaseSearch(s)
                 return false
@@ -185,7 +176,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private fun showCategoriesDialog() {
         val sortOptions = arrayOf("Superheros", "Nature")
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Categories")
             .setIcon(R.drawable.ic_action_category)
             .setItems(sortOptions) { _, i ->
@@ -194,48 +185,36 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 } else {
                     firebaseDatabase?.getReference("nature")
                 }
-                onStart()
+                firebaseDataLoad()
             }
             .show()
     }
 
-    override fun onBackPressed() {
-        showExitDialog()
-    }
-
     private fun showExitDialog() {
-        val sortOptions = arrayOf("Yes", "No")
-        AlertDialog.Builder(this)
-            .setTitle("Are you sure you want to exit the app?")
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Exit App")
+            .setMessage("Are you sure you want to exit?")
             .setIcon(R.drawable.ic_exit_to_app_black_24dp)
-            .setItems(sortOptions) { _, i ->
-                if (i == 0) finish()
-            }
+            .setPositiveButton("Yes") { _, _ -> finish() }
+            .setNegativeButton("No", null)
             .show()
     }
 
     override fun onNavigationItemSelected(menuItem: MenuItem): Boolean {
-        var intent: Intent? = null
-        var chooser: Intent? = null
-        val id = menuItem.itemId
-
-        when (id) {
+        when (menuItem.itemId) {
             R.id.nav_rate_us -> {
-                intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("market://details?id=com.sky.wallapp")
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    data = "market://details?id=com.sky.wallapp".toUri()
                 }
-                chooser = Intent.createChooser(intent, "Launch Google play")
-                startActivity(chooser)
+                startActivity(Intent.createChooser(intent, "Launch Google Play"))
             }
             R.id.nav_contact -> {
-                intent = Intent(Intent.ACTION_SEND).apply {
-                    putExtra(Intent.EXTRA_EMAIL, arrayOf("shubhamskyjnp@gmail.com", "okappsn@gmail.com"))
-                    putExtra(Intent.EXTRA_SUBJECT, "Review of App")
-                    putExtra(Intent.EXTRA_TEXT, "Hi , \nyour app is ..")
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    putExtra(Intent.EXTRA_EMAIL, arrayOf("shubhamskyjnp@gmail.com"))
+                    putExtra(Intent.EXTRA_SUBJECT, "Feedback: Wallpaper App")
                     type = "message/rfc822"
                 }
-                chooser = Intent.createChooser(intent, "Mail your review")
-                startActivity(chooser)
+                startActivity(Intent.createChooser(intent, "Send Email"))
             }
             R.id.nav_share -> shareApp()
             R.id.nav_home -> {
@@ -249,11 +228,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private fun shareApp() {
         val intent = Intent(Intent.ACTION_SEND).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra(Intent.EXTRA_SUBJECT, "Link to download")
-            putExtra(Intent.EXTRA_TEXT, "https://play.google.com/store/apps/details?id=com.sky.wallapp")
+            putExtra(Intent.EXTRA_SUBJECT, "Wallpaper App")
+            putExtra(Intent.EXTRA_TEXT, "Check out this amazing wallpaper app: https://play.google.com/store/apps/details?id=com.sky.wallapp")
             type = "text/plain"
         }
-        startActivity(Intent.createChooser(intent, "Share by :"))
+        startActivity(Intent.createChooser(intent, "Share via"))
     }
 }

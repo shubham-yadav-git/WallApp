@@ -1,44 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:background="@color/colorAccent"
-    android:layout_height="@dimen/nav_header_height"
-    android:orientation="vertical"
-    android:theme="@style/ThemeOverlay.AppCompat.Dark">
+    android:layout_height="180dp"
+    android:background="@color/primaryContainer"
+    android:padding="24dp">
 
-    <ImageView
+    <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/imageView"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="50dp"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
         android:contentDescription="@string/nav_header_desc"
-        android:scaleX="2"
-        android:scaleY="2"
-        app:srcCompat="@drawable/wp_logo_512dp"
-        tools:ignore="VectorDrawableCompat" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium"
+        app:srcCompat="@drawable/wp_logo_512dp" />
 
     <TextView
         android:id="@+id/textView2"
-        android:layout_gravity="center_horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:gravity="center"
-        android:layout_marginTop="10dp"
-        android:paddingTop="@dimen/nav_header_vertical_spacing"
+        android:layout_marginTop="16dp"
         android:text="Wallpaper App"
-        android:textAppearance="@style/TextAppearance.AppCompat.Body1"
-        android:textColor="@color/colorPrimary" />
+        android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+        android:textColor="@color/onPrimaryContainer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/imageView" />
 
     <TextView
         android:id="@+id/textView"
-        android:layout_gravity="center_horizontal"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Latest Superheros and Nature Wallpapers"
-        android:textColor="@color/colorPrimary"
-        />
+        android:text="Latest Superheros and Nature"
+        android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+        android:textColor="@color/onPrimaryContainer"
+        android:alpha="0.8"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textView2" />
 
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

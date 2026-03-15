@@ -5,19 +5,12 @@
         android:id="@+id/action_search"
         android:title="Search"
         android:icon="@drawable/ic_action_seacrh"
-        app:showAsAction="always"
-        app:actionViewClass="android.widget.SearchView"/>
-  <!--  <item
-        android:id="@+id/action_sort"
-        app:showAsAction="always"
-        android:icon="@drawable/ic_action_short_white"
-        android:title="Sort"/>-->
+        app:showAsAction="collapseActionView|ifRoom"
+        app:actionViewClass="androidx.appcompat.widget.SearchView"/>
+
     <item
         android:id="@+id/categories"
         android:icon="@drawable/ic_action_category_white"
-        app:showAsAction="always"
+        app:showAsAction="ifRoom"
         android:title="Categories"/>
-
-
-
 </menu>

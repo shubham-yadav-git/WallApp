@@ -18,21 +18,29 @@
         android:id="@+id/nav_view"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        app:itemTextColor="@color/colorAccent"
-        app:itemIconTint="@color/colorAccent"
         android:layout_gravity="start"
-        android:background="@color/colorPrimary"
         android:fitsSystemWindows="true"
         app:headerLayout="@layout/nav_header_main"
-        app:menu="@menu/activity_main_drawer" >
+        app:menu="@menu/activity_main_drawer"
+        app:itemShapeFillColor="@color/secondaryContainer"
+        app:itemShapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium"
+        app:itemVerticalPadding="24dp"
+        app:itemIconPadding="24dp"
+        app:itemShapeInsetTop="8dp"
+        app:itemShapeInsetBottom="8dp"
+        app:itemShapeInsetStart="12dp"
+        app:itemShapeInsetEnd="12dp"
+        android:background="@color/surface">
 
         <TextView
             android:layout_width="match_parent"
-            android:textSize="12sp"
-            android:text="Shubham Yadav"
-            android:alpha=".3"
+            android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:layout_height="wrap_content"/>
+            android:layout_margin="16dp"
+            android:alpha=".5"
+            android:text="Shubham Yadav"
+            android:textAlignment="center"
+            android:textSize="12sp" />
 
     </com.google.android.material.navigation.NavigationView>
 

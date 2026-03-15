@@ -12,12 +12,11 @@ import android.os.Environment
 import android.os.StrictMode
 import android.view.animation.AnimationUtils
 import android.widget.Toast
-import androidx.annotation.RequiresApi
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.bumptech.glide.Glide
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.sky.wallapp.databinding.ActivityImageBinding
 import java.io.File
 import java.io.FileOutputStream
@@ -41,9 +40,10 @@ class ImageActivity : AppCompatActivity() {
         
         initPhotoError()
 
+        setSupportActionBar(binding.toolbar)
         supportActionBar?.apply {
             setDisplayHomeAsUpEnabled(true)
-            setDisplayShowHomeEnabled(true)
+            setDisplayShowTitleEnabled(false)
         }
 
         titlev = intent.getStringExtra("title")
@@ -56,10 +56,8 @@ class ImageActivity : AppCompatActivity() {
         val animFadeIn = AnimationUtils.loadAnimation(applicationContext, R.anim.fade_in)
         binding.imageView.startAnimation(animFadeIn)
 
-        supportActionBar?.title = titlev
-
         binding.btnSave.setOnClickListener {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED) {
                     ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), WRITE_EXTERNAL_STORAGE_CODE)
                 } else {
@@ -75,42 +73,42 @@ class ImageActivity : AppCompatActivity() {
         }
 
         binding.btnWall.setOnClickListener {
-            Toast.makeText(this@ImageActivity, "Please wait setting wallpaper...", Toast.LENGTH_LONG).show()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                openWallDialog()
-            }
+            openWallDialog()
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.N)
     private fun openWallDialog() {
         val mDrawable = binding.imageView.drawable
-        if (mDrawable !is BitmapDrawable) return
+        if (mDrawable !is BitmapDrawable) {
+            Toast.makeText(this, "Image not loaded yet", Toast.LENGTH_SHORT).show()
+            return
+        }
         
         val mBitmap = mDrawable.bitmap
         val wallpaperManager = WallpaperManager.getInstance(applicationContext)
 
-        val wallOptions = arrayOf("HomeScreen", "LockScreen", "HomeScreen And Lock Screen")
-        AlertDialog.Builder(this)
-            .setTitle("Choose Option")
+        val wallOptions = arrayOf("Home Screen", "Lock Screen", "Both")
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Set Wallpaper")
             .setItems(wallOptions) { _, i ->
+                Toast.makeText(this@ImageActivity, "Setting wallpaper...", Toast.LENGTH_SHORT).show()
                 try {
                     when (i) {
                         0 -> {
                             wallpaperManager.setBitmap(mBitmap, null, true, WallpaperManager.FLAG_SYSTEM)
-                            Toast.makeText(this, "HomeScreen Set Successfully", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "Home Screen set successfully", Toast.LENGTH_SHORT).show()
                         }
                         1 -> {
                             wallpaperManager.setBitmap(mBitmap, null, true, WallpaperManager.FLAG_LOCK)
-                            Toast.makeText(this, "LockScreen Set Successfully", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "Lock Screen set successfully", Toast.LENGTH_SHORT).show()
                         }
                         else -> {
                             wallpaperManager.setBitmap(mBitmap)
-                            Toast.makeText(this, "Wallpaper Set Successfully", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "Wallpaper set successfully", Toast.LENGTH_SHORT).show()
                         }
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(this, "Wall not set: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
             .show()
@@ -121,12 +119,12 @@ class ImageActivity : AppCompatActivity() {
             val intent = Intent(Intent.ACTION_SEND).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 putExtra(Intent.EXTRA_SUBJECT, titlev)
-                putExtra(Intent.EXTRA_TEXT, imageUrl)
+                putExtra(Intent.EXTRA_TEXT, "Check out this wallpaper: $imageUrl")
                 type = "text/plain"
             }
-            startActivity(Intent.createChooser(intent, "Share by :"))
+            startActivity(Intent.createChooser(intent, "Share via"))
         } catch (e: Exception) {
-            Toast.makeText(this, "Unable to share because ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Unable to share: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -138,26 +136,31 @@ class ImageActivity : AppCompatActivity() {
 
     private fun saveImage() {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(System.currentTimeMillis())
-        binding.imageView.isDrawingCacheEnabled = true
-        val bitmap = binding.imageView.drawingCache
+        
+        val mDrawable = binding.imageView.drawable
+        if (mDrawable !is BitmapDrawable) {
+            Toast.makeText(this, "Image not loaded yet", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val bitmap = mDrawable.bitmap
         
         val path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-        val dir = File(path, "Wallapp")
+        val dir = File(path, "WallApp")
         if (!dir.exists()) {
             dir.mkdirs()
         }
         
-        val imageName = "${titlev}_$timeStamp.JPEG"
-        val file = File(dir, imageName)
+        val fileName = "${titlev?.replace(" ", "_")}_$timeStamp.jpg"
+        val file = File(dir, fileName)
 
         try {
             val fileOutputStream = FileOutputStream(file)
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
             fileOutputStream.flush()
             fileOutputStream.close()
-            Toast.makeText(this, "$imageName saved to $dir", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Saved to $dir", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Error saving: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -172,7 +175,7 @@ class ImageActivity : AppCompatActivity() {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 saveImage()
             } else {
-                Toast.makeText(this, "Enable Permission to save Image", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Permission required to save", Toast.LENGTH_LONG).show()
             }
         }
     }
