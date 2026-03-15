@@ -13,10 +13,8 @@ import androidx.appcompat.widget.SearchView
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.GravityCompat
-import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.firebase.ui.database.FirebaseRecyclerAdapter
 import com.firebase.ui.database.FirebaseRecyclerOptions
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -32,7 +30,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private var firebaseDatabase: FirebaseDatabase? = null
     private var mRef: DatabaseReference? = null
     private var firebaseRecyclerAdapter: FirebaseRecyclerAdapter<Model, ViewHolder>? = null
-    private var staggeredGridLayoutManager: WrapStaggeredGridLayoutManager? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -68,30 +65,29 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun initRecyclerView() {
-        staggeredGridLayoutManager = WrapStaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
         binding.appBarMain.contentMain.recyclerView.apply {
             setHasFixedSize(true)
-            layoutManager = staggeredGridLayoutManager
             itemAnimator = null 
         }
     }
 
     private fun setupAdapter(query: Query) {
+        // Clean up previous adapter if any
+        firebaseRecyclerAdapter?.stopListening()
+        
         val options = FirebaseRecyclerOptions.Builder<Model>()
             .setQuery(query, Model::class.java)
-            .setLifecycleOwner(this)
             .build()
 
         firebaseRecyclerAdapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
-                // Optimized image loading for thumbnails
                 Glide.with(this@MainActivity)
                     .load(model.image)
-                    .override(400, 600) // Downsample for list view
-                    .diskCacheStrategy(DiskCacheStrategy.ALL) // Cache both original and resized
-                    .placeholder(R.drawable.load)
+                    .centerCrop()
+                    .override(400, 600)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .placeholder(R.color.surfaceVariant) // Solid color placeholder prevents stretch flash
                     .error(R.mipmap.ic_launcher_round)
-                    .transition(DrawableTransitionOptions.withCrossFade(300)) // Faster crossfade
                     .into(holder.imageView)
 
                 holder.textView.text = model.title
@@ -109,6 +105,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 return ViewHolder(view)
             }
         }
+        
+        firebaseRecyclerAdapter?.startListening()
         binding.appBarMain.contentMain.recyclerView.adapter = firebaseRecyclerAdapter
     }
 
@@ -120,6 +118,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val queryText = searchText.lowercase()
         val searchQuery = mRef?.orderByChild("search")?.startAt(queryText)?.endAt(queryText + "\uf8ff")
         setupAdapter(searchQuery!!)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        firebaseRecyclerAdapter?.stopListening()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
