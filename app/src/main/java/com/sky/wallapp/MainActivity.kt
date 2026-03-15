@@ -1,11 +1,13 @@
 package com.sky.wallapp
 
 import android.content.Intent
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
@@ -14,7 +16,11 @@ import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.GravityCompat
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
 import com.firebase.ui.database.FirebaseRecyclerAdapter
 import com.firebase.ui.database.FirebaseRecyclerOptions
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -72,7 +78,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun setupAdapter(query: Query) {
-        // Clean up previous adapter if any
         firebaseRecyclerAdapter?.stopListening()
         
         val options = FirebaseRecyclerOptions.Builder<Model>()
@@ -81,22 +86,41 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         firebaseRecyclerAdapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
+                // Keep track of load state using a tag on the itemView
+                holder.itemView.tag = false 
+
                 Glide.with(this@MainActivity)
                     .load(model.image)
                     .centerCrop()
-                    .override(400, 600)
+                    .override(200, 300) // Much smaller size for thumbnails
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .placeholder(R.color.surfaceVariant) // Solid color placeholder prevents stretch flash
+                    .placeholder(R.color.surfaceVariant)
                     .error(R.mipmap.ic_launcher_round)
+                    .listener(object : RequestListener<Drawable> {
+                        override fun onLoadFailed(e: GlideException?, model: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
+                            holder.itemView.tag = false
+                            return false
+                        }
+
+                        override fun onResourceReady(resource: Drawable, model: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean): Boolean {
+                            holder.itemView.tag = true // Mark as loaded
+                            return false
+                        }
+                    })
                     .into(holder.imageView)
 
                 holder.textView.text = model.title
                 holder.cardViewParent.setOnClickListener {
-                    val intent = Intent(this@MainActivity, ImageActivity::class.java).apply {
-                        putExtra("title", model.title)
-                        putExtra("image", model.image)
+                    val isLoaded = holder.itemView.tag as? Boolean ?: false
+                    if (isLoaded) {
+                        val intent = Intent(this@MainActivity, ImageActivity::class.java).apply {
+                            putExtra("title", model.title)
+                            putExtra("image", model.image) // Passing URL to load full quality in ImageActivity
+                        }
+                        startActivity(intent)
+                    } else {
+                        Toast.makeText(this@MainActivity, "Please wait for the image to load", Toast.LENGTH_SHORT).show()
                     }
-                    startActivity(intent)
                 }
             }
 
