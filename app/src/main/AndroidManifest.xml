@@ -13,25 +13,22 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+
         <activity
-            android:name="com.sky.wallapp.splashscreen"
-            android:exported="true">
+            android:name="com.sky.wallapp.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
             android:name="com.sky.wallapp.ImageActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />
-        <activity
-            android:name="com.sky.wallapp.MainActivity"
-            android:exported="false"
-            android:theme="@style/AppTheme.NoActionBar">
 
-        </activity>
     </application>
 
 </manifest>

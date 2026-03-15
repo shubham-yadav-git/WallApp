@@ -1,13 +1,18 @@
 <resources>
 
-
-
     <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/colorAccent</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/wp_logo_512dp</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/colorAccent</item>
+        <item name="postSplashScreenTheme">@style/AppTheme</item>
     </style>
 
     <style name="DrawerIcon" parent="Widget.AppCompat.DrawerArrowToggle">

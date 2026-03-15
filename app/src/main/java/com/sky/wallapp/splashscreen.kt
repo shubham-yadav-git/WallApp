@@ -8,10 +8,14 @@ import android.os.Handler
 import android.os.Looper
 import android.view.animation.AnimationUtils
 import android.widget.ImageView
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 @SuppressLint("CustomSplashScreen")
 class splashscreen : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Handle the splash screen transition.
+        val splashScreen = installSplashScreen()
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splashscreen)
         
