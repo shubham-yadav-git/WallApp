@@ -20,6 +20,7 @@
         <activity
             android:name="com.sky.wallapp.MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

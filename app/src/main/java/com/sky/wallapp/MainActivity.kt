@@ -30,7 +30,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private var firebaseDatabase: FirebaseDatabase? = null
     private var mRef: DatabaseReference? = null
     private var firebaseRecyclerAdapter: FirebaseRecyclerAdapter<Model, ViewHolder>? = null
-    private var staggeredGridLayoutManager: StaggeredGridLayoutManager? = null
+    private var staggeredGridLayoutManager: WrapStaggeredGridLayoutManager? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -65,7 +65,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun firebaseDataLoad() {
-        staggeredGridLayoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
+        staggeredGridLayoutManager = WrapStaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
         binding.appBarMain.contentMain.recyclerView.apply {
             setHasFixedSize(true)
             layoutManager = staggeredGridLayoutManager

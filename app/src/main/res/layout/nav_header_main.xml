@@ -32,7 +32,7 @@
         android:id="@+id/textView"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Latest Superheros and Nature"
+        android:text="@string/latest_superheros_and_nature"
         android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
         android:textColor="@color/onPrimaryContainer"
         android:alpha="0.8"
