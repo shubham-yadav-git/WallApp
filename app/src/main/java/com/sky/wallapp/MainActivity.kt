@@ -26,9 +26,12 @@ import com.firebase.ui.database.FirebaseRecyclerAdapter
 import com.firebase.ui.database.FirebaseRecyclerOptions
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationView
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.Query
+import com.google.firebase.database.ValueEventListener
 import com.sky.wallapp.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -37,6 +40,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private var firebaseDatabase: FirebaseDatabase? = null
     private var mRef: DatabaseReference? = null
     private var firebaseRecyclerAdapter: FirebaseRecyclerAdapter<Model, ViewHolder>? = null
+    private var categoriesList = mutableListOf<Category>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -59,6 +63,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         
         initRecyclerView()
         setupAdapter(mRef!!)
+        loadCategoriesFromBackend()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -67,6 +72,22 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 } else {
                     showExitDialog()
                 }
+            }
+        })
+    }
+
+    private fun loadCategoriesFromBackend() {
+        firebaseDatabase?.getReference("categories")?.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                categoriesList.clear()
+                for (postSnapshot in snapshot.children) {
+                    val category = postSnapshot.getValue(Category::class.java)
+                    category?.let { categoriesList.add(it) }
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(this@MainActivity, "Failed to load categories", Toast.LENGTH_SHORT).show()
             }
         })
     }
@@ -93,7 +114,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     .load(model.image)
                     .centerCrop()
                     .override(200, 300)
-                    .diskCacheStrategy(DiskCacheStrategy.DATA) // Cache original data to survive for a year
+                    .diskCacheStrategy(DiskCacheStrategy.DATA)
                     .placeholder(R.color.surfaceVariant)
                     .error(R.mipmap.ic_launcher_round)
                     .listener(object : RequestListener<Drawable> {
@@ -176,16 +197,19 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun showCategoriesDialog() {
-        val sortOptions = arrayOf("Superheros", "Nature")
+        if (categoriesList.isEmpty()) {
+            Toast.makeText(this, "Loading categories...", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val categoryNames = categoriesList.map { it.name ?: "Unknown" }.toTypedArray()
+        
         MaterialAlertDialogBuilder(this)
             .setTitle("Categories")
             .setIcon(R.drawable.ic_action_category)
-            .setItems(sortOptions) { _, i ->
-                mRef = if (i == 0) {
-                    firebaseDatabase?.getReference("Data")
-                } else {
-                    firebaseDatabase?.getReference("nature")
-                }
+            .setItems(categoryNames) { _, i ->
+                val selectedCategory = categoriesList[i]
+                mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
                 firebaseDataLoad()
             }
             .show()
