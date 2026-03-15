@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:background="@color/colorAccent"
+    android:background="@color/colorPrimaryDark"
     android:layout_height="match_parent"
     android:layout_gravity="center_vertical"
     android:orientation="vertical"
@@ -16,13 +15,15 @@
         android:layout_gravity="center"
         android:layout_marginTop="250dp"
         android:contentDescription="@string/todo"
-        android:src="@drawable/wp_logo_512dp" />
+        android:src="@drawable/wp_logo_512dp"
+        android:tint="@color/white" />
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="30sp"
         android:textAlignment="center"
-        android:textColor="@color/colorPrimary"
+        android:textColor="@color/white"
         android:text="@string/wallpaper_app"
         android:gravity="center_horizontal" />
 </LinearLayout>
