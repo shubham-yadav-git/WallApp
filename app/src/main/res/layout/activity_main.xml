@@ -35,11 +35,11 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
+            android:layout_gravity="center_horizontal"
             android:layout_margin="16dp"
             android:alpha=".5"
-            android:text="Shubham Yadav"
-            android:textAlignment="center"
+            android:text="@string/user_name"
+            android:gravity="center_horizontal"
             android:textSize="12sp" />
 
     </com.google.android.material.navigation.NavigationView>

@@ -12,5 +12,7 @@
     <string name="banner_ad_unit_id">ca-app-pub-3940256099942544/6300978111</string>
 
     <string name="menu_home">Home</string>
+    <string name="user_name">Shubham Yadav</string>
+    <string name="wallpaper_app">Wallpaper App</string>
+    <string name="todo">TODO</string>
 </resources>
-

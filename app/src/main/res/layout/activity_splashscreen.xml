@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     android:layout_gravity="center_vertical"
     android:orientation="vertical"
-    tools:context=".splashscreen">
+    tools:context=".Splashscreen">
 
     <ImageView
         android:id="@+id/imageView2"
@@ -15,6 +15,7 @@
         android:layout_height="150dp"
         android:layout_gravity="center"
         android:layout_marginTop="250dp"
+        android:contentDescription="@string/todo"
         android:src="@drawable/wp_logo_512dp" />
     <TextView
         android:layout_width="match_parent"
@@ -22,6 +23,6 @@
         android:textSize="30sp"
         android:textAlignment="center"
         android:textColor="@color/colorPrimary"
-        android:text="Wallpaper App"
+        android:text="@string/wallpaper_app"
         android:gravity="center_horizontal" />
 </LinearLayout>
