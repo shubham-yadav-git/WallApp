@@ -93,7 +93,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     .load(model.image)
                     .centerCrop()
                     .override(200, 300)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .diskCacheStrategy(DiskCacheStrategy.DATA) // Cache original data to survive for a year
                     .placeholder(R.color.surfaceVariant)
                     .error(R.mipmap.ic_launcher_round)
                     .listener(object : RequestListener<Drawable> {
@@ -130,9 +130,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
         }
         
-        // Fix scroll position loss by waiting for data to load before restoring state
         firebaseRecyclerAdapter?.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
-        
         firebaseRecyclerAdapter?.startListening()
         binding.appBarMain.contentMain.recyclerView.adapter = firebaseRecyclerAdapter
     }
