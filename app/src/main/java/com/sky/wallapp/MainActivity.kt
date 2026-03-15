@@ -15,6 +15,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.GravityCompat
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.firebase.ui.database.FirebaseRecyclerAdapter
 import com.firebase.ui.database.FirebaseRecyclerOptions
@@ -22,6 +23,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationView
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.Query
 import com.sky.wallapp.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -51,7 +53,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         firebaseDatabase = FirebaseDatabase.getInstance()
         mRef = firebaseDatabase?.getReference("random")
         
-        firebaseDataLoad()
+        initRecyclerView()
+        setupAdapter(mRef!!)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -64,24 +67,31 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         })
     }
 
-    private fun firebaseDataLoad() {
+    private fun initRecyclerView() {
         staggeredGridLayoutManager = WrapStaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
         binding.appBarMain.contentMain.recyclerView.apply {
             setHasFixedSize(true)
             layoutManager = staggeredGridLayoutManager
+            itemAnimator = null 
         }
+    }
 
+    private fun setupAdapter(query: Query) {
         val options = FirebaseRecyclerOptions.Builder<Model>()
-            .setQuery(mRef!!, Model::class.java)
+            .setQuery(query, Model::class.java)
+            .setLifecycleOwner(this)
             .build()
 
         firebaseRecyclerAdapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
+                // Optimized image loading for thumbnails
                 Glide.with(this@MainActivity)
                     .load(model.image)
-                    .thumbnail(Glide.with(this@MainActivity).load(R.drawable.load))
+                    .override(400, 600) // Downsample for list view
+                    .diskCacheStrategy(DiskCacheStrategy.ALL) // Cache both original and resized
+                    .placeholder(R.drawable.load)
                     .error(R.mipmap.ic_launcher_round)
-                    .transition(DrawableTransitionOptions.withCrossFade(1000))
+                    .transition(DrawableTransitionOptions.withCrossFade(300)) // Faster crossfade
                     .into(holder.imageView)
 
                 holder.textView.text = model.title
@@ -99,54 +109,17 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 return ViewHolder(view)
             }
         }
-        firebaseRecyclerAdapter?.startListening()
         binding.appBarMain.contentMain.recyclerView.adapter = firebaseRecyclerAdapter
+    }
+
+    private fun firebaseDataLoad() {
+        setupAdapter(mRef!!)
     }
 
     private fun firebaseSearch(searchText: String) {
-        val query = searchText.lowercase()
-        val firebaseSearchQuery = mRef?.orderByChild("search")?.startAt(query)?.endAt(query + "\uf8ff")
-
-        val options = FirebaseRecyclerOptions.Builder<Model>()
-            .setQuery(firebaseSearchQuery!!, Model::class.java)
-            .build()
-
-        firebaseRecyclerAdapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
-            override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
-                Glide.with(this@MainActivity)
-                    .load(model.image)
-                    .thumbnail(Glide.with(this@MainActivity).load(R.drawable.load))
-                    .error(R.mipmap.ic_launcher_round)
-                    .transition(DrawableTransitionOptions.withCrossFade(1000))
-                    .into(holder.imageView)
-
-                holder.textView.text = model.title
-                holder.cardViewParent.setOnClickListener {
-                    val intent = Intent(this@MainActivity, ImageActivity::class.java).apply {
-                        putExtra("title", model.title)
-                        putExtra("image", model.image)
-                    }
-                    startActivity(intent)
-                }
-            }
-
-            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-                val view = LayoutInflater.from(parent.context).inflate(R.layout.row, parent, false)
-                return ViewHolder(view)
-            }
-        }
-        firebaseRecyclerAdapter?.startListening()
-        binding.appBarMain.contentMain.recyclerView.adapter = firebaseRecyclerAdapter
-    }
-
-    override fun onStart() {
-        super.onStart()
-        firebaseRecyclerAdapter?.startListening()
-    }
-
-    override fun onStop() {
-        firebaseRecyclerAdapter?.stopListening()
-        super.onStop()
+        val queryText = searchText.lowercase()
+        val searchQuery = mRef?.orderByChild("search")?.startAt(queryText)?.endAt(queryText + "\uf8ff")
+        setupAdapter(searchQuery!!)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
