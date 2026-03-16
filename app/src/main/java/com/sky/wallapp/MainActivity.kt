@@ -84,19 +84,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 val menu = binding.navView.menu
                 val categoryGroup = menu.findItem(R.id.group_categories)?.subMenu ?: menu
                 
-                // Clear existing dynamic items if any
-                categoriesList.indices.forEach { _ -> 
-                    // This is a bit complex to clear specific items, 
-                    // easier to just clear and re-add if needed, 
-                    // but menu.clear() removes EVERYTHING.
-                }
-                
                 for (postSnapshot in snapshot.children) {
                     val category = postSnapshot.getValue(Category::class.java)
                     category?.let { 
                         categoriesList.add(it)
-                        // Add to drawer menu programmatically
-                        val itemId = categoriesList.size + 100 // Avoid conflict with static IDs
+                        val itemId = categoriesList.size + 100 
                         categoryGroup.add(R.id.group_categories, itemId, Menu.NONE, it.name)
                             .setIcon(R.drawable.ic_action_category)
                     }
@@ -127,20 +119,26 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
                 holder.itemView.tag = false 
 
+                val imageUrl = if (!model.thumbs.isNullOrEmpty()) model.thumbs else model.image
+
                 Glide.with(this@MainActivity)
-                    .load(model.image)
+                    .load(imageUrl)
                     .centerCrop()
-                    .override(200, 300)
-                    .diskCacheStrategy(DiskCacheStrategy.DATA)
+                    .thumbnail(
+                        if (!model.thumbs.isNullOrEmpty()) {
+                            Glide.with(this@MainActivity).load(model.thumbs).centerCrop()
+                        } else null
+                    )
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .placeholder(R.color.surfaceVariant)
                     .error(R.mipmap.ic_launcher_round)
                     .listener(object : RequestListener<Drawable> {
-                        override fun onLoadFailed(e: GlideException?, model: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
+                        override fun onLoadFailed(e: GlideException?, modelObj: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
                             holder.itemView.tag = false
                             return false
                         }
 
-                        override fun onResourceReady(resource: Drawable, model: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean): Boolean {
+                        override fun onResourceReady(resource: Drawable, modelObj: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean): Boolean {
                             holder.itemView.tag = true 
                             return false
                         }
@@ -272,7 +270,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 startActivity(intent)
             }
             else -> {
-                // Check if it's a dynamic category
                 if (id >= 100) {
                     val index = id - 101
                     if (index >= 0 && index < categoriesList.size) {
