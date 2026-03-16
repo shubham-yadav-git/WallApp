@@ -3,23 +3,44 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:showIn="navigation_view">
 
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_home"
+            android:icon="@drawable/ic_home_black_24dp"
+            android:title="All Wallpapers" />
+    </group>
 
-    <item
-        android:id="@+id/nav_home"
-        android:icon="@drawable/ic_home_black_24dp"
-        android:title="Home"/>
-    <item
-        android:id="@+id/nav_contact"
-        android:icon="@drawable/ic_contact_mail"
-        android:title="Feedback" />
-    <item
-        android:id="@+id/nav_rate_us"
-        android:title="Rate Us"
-        android:icon="@drawable/ic_rate_review_24dp"/>
-    <item
-        android:id="@+id/nav_share"
-        android:icon="@drawable/ic_share_blue_24dp"
-        android:title="Share" />
+    <item android:title="Categories">
+        <menu>
+            <!-- Dynamic categories will be added here programmatically -->
+            <group id="@+id/group_categories" />
+        </menu>
+    </item>
 
+    <item android:title="Support &amp; Community">
+        <menu>
+            <item
+                android:id="@+id/nav_contact"
+                android:icon="@drawable/ic_contact_mail"
+                android:title="Send Feedback" />
+            <item
+                android:id="@+id/nav_rate_us"
+                android:icon="@drawable/ic_rate_review_24dp"
+                android:title="Rate App" />
+            <item
+                android:id="@+id/nav_share"
+                android:icon="@drawable/ic_share_blue_24dp"
+                android:title="Share with Friends" />
+        </menu>
+    </item>
+
+    <item android:title="Legal">
+        <menu>
+            <item
+                android:id="@+id/nav_privacy"
+                android:icon="@drawable/ic_exit_to_app_black_24dp"
+                android:title="Privacy Policy" />
+        </menu>
+    </item>
 
 </menu>

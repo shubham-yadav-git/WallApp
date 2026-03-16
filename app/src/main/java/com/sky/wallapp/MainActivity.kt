@@ -57,13 +57,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         binding.drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
         binding.navView.setNavigationItemSelectedListener(this)
+        binding.navView.setCheckedItem(R.id.nav_home)
 
         firebaseDatabase = FirebaseDatabase.getInstance()
         mRef = firebaseDatabase?.getReference("random")
         
         initRecyclerView()
         setupAdapter(mRef!!)
-        loadCategoriesFromBackend()
+        loadCategoriesToDrawer()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -76,13 +77,29 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         })
     }
 
-    private fun loadCategoriesFromBackend() {
+    private fun loadCategoriesToDrawer() {
         firebaseDatabase?.getReference("categories")?.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 categoriesList.clear()
+                val menu = binding.navView.menu
+                val categoryGroup = menu.findItem(R.id.group_categories)?.subMenu ?: menu
+                
+                // Clear existing dynamic items if any
+                categoriesList.indices.forEach { _ -> 
+                    // This is a bit complex to clear specific items, 
+                    // easier to just clear and re-add if needed, 
+                    // but menu.clear() removes EVERYTHING.
+                }
+                
                 for (postSnapshot in snapshot.children) {
                     val category = postSnapshot.getValue(Category::class.java)
-                    category?.let { categoriesList.add(it) }
+                    category?.let { 
+                        categoriesList.add(it)
+                        // Add to drawer menu programmatically
+                        val itemId = categoriesList.size + 100 // Avoid conflict with static IDs
+                        categoryGroup.add(R.id.group_categories, itemId, Menu.NONE, it.name)
+                            .setIcon(R.drawable.ic_action_category)
+                    }
                 }
             }
 
@@ -226,12 +243,12 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     override fun onNavigationItemSelected(menuItem: MenuItem): Boolean {
-        when (menuItem.itemId) {
-            R.id.nav_rate_us -> {
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = "market://details?id=com.sky.wallapp".toUri()
-                }
-                startActivity(Intent.createChooser(intent, "Launch Google Play"))
+        val id = menuItem.itemId
+        
+        when (id) {
+            R.id.nav_home -> {
+                mRef = firebaseDatabase?.getReference("random")
+                firebaseDataLoad()
             }
             R.id.nav_contact -> {
                 val intent = Intent(Intent.ACTION_SEND).apply {
@@ -241,12 +258,33 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 }
                 startActivity(Intent.createChooser(intent, "Send Email"))
             }
+            R.id.nav_rate_us -> {
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    data = "market://details?id=com.sky.wallapp".toUri()
+                }
+                startActivity(Intent.createChooser(intent, "Launch Google Play"))
+            }
             R.id.nav_share -> shareApp()
-            R.id.nav_home -> {
-                mRef = firebaseDatabase?.getReference("random")
-                firebaseDataLoad()
+            R.id.nav_privacy -> {
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    data = "https://your-privacy-policy-url.com".toUri()
+                }
+                startActivity(intent)
+            }
+            else -> {
+                // Check if it's a dynamic category
+                if (id >= 100) {
+                    val index = id - 101
+                    if (index >= 0 && index < categoriesList.size) {
+                        val selectedCategory = categoriesList[index]
+                        mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
+                        firebaseDataLoad()
+                        supportActionBar?.title = selectedCategory.name
+                    }
+                }
             }
         }
+
         binding.drawerLayout.closeDrawer(GravityCompat.START)
         return true
     }
