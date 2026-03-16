@@ -19,4 +19,6 @@
     <string name="share">Share</string>
     <string name="set_wallpaper">Set Wallpaper</string>
     <string name="user_name">pihu</string>
+    <string name="premium_wallpapers">Premium Wallpapers</string>
+    <string name="app_version">v1.0.0</string>
 </resources>

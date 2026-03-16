@@ -24,23 +24,38 @@
         app:menu="@menu/activity_main_drawer"
         app:itemShapeFillColor="@color/secondaryContainer"
         app:itemShapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium"
-        app:itemVerticalPadding="24dp"
+        app:itemVerticalPadding="12dp"
         app:itemIconPadding="24dp"
-        app:itemShapeInsetTop="8dp"
-        app:itemShapeInsetBottom="8dp"
+        app:itemShapeInsetTop="4dp"
+        app:itemShapeInsetBottom="4dp"
         app:itemShapeInsetStart="12dp"
         app:itemShapeInsetEnd="12dp"
+        app:itemIconTint="@color/primary"
+        app:itemTextColor="@color/onSurface"
         android:background="@color/surface">
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_margin="16dp"
-            android:alpha=".5"
-            android:text="@string/user_name"
-            android:gravity="center_horizontal"
-            android:textSize="12sp" />
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:alpha="0.1"
+                android:background="@color/onSurface" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:alpha=".5"
+                android:text="@string/user_name"
+                android:gravity="center"
+                android:textAppearance="@style/TextAppearance.Material3.LabelSmall" />
+        </LinearLayout>
 
     </com.google.android.material.navigation.NavigationView>
 
