@@ -119,13 +119,25 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
                 holder.itemView.tag = false 
 
-                val imageUrl = if (!model.thumbs.isNullOrEmpty()) model.thumbs else model.image
+                val cloudinaryUrl = model.cloudinaryUrl
+                val imageUrl: String?
+                val thumbUrl: String?
+
+                if (!cloudinaryUrl.isNullOrEmpty()) {
+                    thumbUrl = cloudinaryUrl.replace("/upload/", "/upload/w_300,q_auto,f_auto/")
+                    imageUrl = cloudinaryUrl.replace("/upload/", "/upload/q_auto,f_auto/")
+                } else {
+                    thumbUrl = if (!model.thumbs.isNullOrEmpty()) model.thumbs else model.image
+                    imageUrl = model.image
+                }
 
                 Glide.with(this@MainActivity)
-                    .load(imageUrl)
+                    .load(thumbUrl)
                     .centerCrop()
                     .thumbnail(
-                        if (!model.thumbs.isNullOrEmpty()) {
+                        if (!cloudinaryUrl.isNullOrEmpty()) {
+                            Glide.with(this@MainActivity).load(cloudinaryUrl.replace("/upload/", "/upload/w_50,q_auto,f_auto/")).centerCrop()
+                        } else if (!model.thumbs.isNullOrEmpty()) {
                             Glide.with(this@MainActivity).load(model.thumbs).centerCrop()
                         } else null
                     )
@@ -151,7 +163,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     if (isLoaded) {
                         val intent = Intent(this@MainActivity, ImageActivity::class.java).apply {
                             putExtra("title", model.title)
-                            putExtra("image", model.image)
+                            putExtra("image", imageUrl)
                         }
                         startActivity(intent)
                     } else {
