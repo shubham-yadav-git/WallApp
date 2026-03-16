@@ -4,5 +4,6 @@ data class Model(
     var title: String? = null,
     var image: String? = null,
     var search: String? = null,
-    var thumbs: String? = null
+    var thumbs: String? = null,
+    var cloudinaryUrl: String? = null
 )
