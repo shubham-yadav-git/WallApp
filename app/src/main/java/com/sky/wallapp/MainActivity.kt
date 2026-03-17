@@ -12,7 +12,6 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
-import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.GravityCompat
 import androidx.recyclerview.widget.RecyclerView
@@ -42,6 +41,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private var firebaseRecyclerAdapter: FirebaseRecyclerAdapter<Model, ViewHolder>? = null
     private var categoriesList = mutableListOf<Category>()
     private var isTrendingMode = true
+    private var fullList = mutableListOf<Model>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -119,7 +119,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         binding.navView.setCheckedItem(R.id.nav_home)
         
         if (categoriesList.isEmpty()) {
-            // If categories haven't loaded yet, wait for onDataChange
             return
         }
 
@@ -137,23 +136,25 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                         }
                         categoriesProcessed++
                         if (categoriesProcessed == totalCategories) {
-                            displayTrending(allPhotos)
+                            fullList.clear()
+                            fullList.addAll(allPhotos)
+                            displayList(allPhotos.shuffled())
                         }
                     }
 
                     override fun onCancelled(error: DatabaseError) {
                         categoriesProcessed++
                         if (categoriesProcessed == totalCategories) {
-                            displayTrending(allPhotos)
+                            fullList.clear()
+                            fullList.addAll(allPhotos)
+                            displayList(allPhotos.shuffled())
                         }
                     }
                 })
         }
     }
 
-    private fun displayTrending(photos: MutableList<Model>) {
-        photos.shuffle()
-        
+    private fun displayList(photos: List<Model>) {
         firebaseRecyclerAdapter?.stopListening()
         firebaseRecyclerAdapter = null
         
@@ -252,6 +253,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 val view = LayoutInflater.from(parent.context).inflate(R.layout.row, parent, false)
                 return ViewHolder(view)
             }
+
+            override fun onDataChanged() {
+                super.onDataChanged()
+                fullList.clear()
+                for (i in 0 until snapshots.size) {
+                    fullList.add(snapshots[i])
+                }
+            }
         }
         
         firebaseRecyclerAdapter?.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
@@ -263,10 +272,18 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         mRef?.let { setupAdapter(it) }
     }
 
-    private fun firebaseSearch(searchText: String) {
+    private fun localSearch(searchText: String) {
+        if (searchText.isEmpty()) {
+            if (isTrendingMode) displayList(fullList.shuffled()) else displayList(fullList)
+            return
+        }
         val queryText = searchText.lowercase()
-        val searchQuery = mRef?.orderByChild("search")?.startAt(queryText)?.endAt(queryText + "\uf8ff")
-        searchQuery?.let { setupAdapter(it) }
+        val filteredList = fullList.filter { 
+            val titleMatch = it.title?.lowercase()?.contains(queryText) == true
+            val searchMatch = it.search?.lowercase()?.contains(queryText) == true
+            titleMatch || searchMatch
+        }
+        displayList(filteredList)
     }
 
     override fun onDestroy() {
@@ -280,12 +297,12 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val searchView = menuItem.actionView as? SearchView
         searchView?.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(s: String): Boolean {
-                firebaseSearch(s)
+                localSearch(s)
                 return false
             }
 
             override fun onQueryTextChange(newText: String): Boolean {
-                firebaseSearch(newText)
+                localSearch(newText)
                 return false
             }
         })
@@ -337,47 +354,22 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             R.id.nav_contact -> {
                 val intent = Intent(Intent.ACTION_SEND).apply {
                     putExtra(Intent.EXTRA_EMAIL, arrayOf("shubhamskyjnp@gmail.com"))
-                    putExtra(Intent.EXTRA_SUBJECT, "Feedback: Wallpaper App")
+                    putExtra(Intent.EXTRA_SUBJECT, "Feedback for WallApp")
                     type = "message/rfc822"
                 }
-                startActivity(Intent.createChooser(intent, "Send Email"))
-            }
-            R.id.nav_rate_us -> {
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = "market://details?id=com.sky.wallapp".toUri()
-                }
-                startActivity(Intent.createChooser(intent, "Launch Google Play"))
-            }
-            R.id.nav_share -> shareApp()
-            R.id.nav_privacy -> {
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = "https://your-privacy-policy-url.com".toUri()
-                }
-                startActivity(intent)
+                startActivity(Intent.createChooser(intent, "Choose Email Client"))
             }
             else -> {
-                if (id >= 100) {
-                    val index = id - 101
-                    if (index >= 0 && index < categoriesList.size) {
-                        val selectedCategory = categoriesList[index]
-                        mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
-                        firebaseDataLoad()
-                        supportActionBar?.title = selectedCategory.name
-                    }
+                val categoryIndex = id - 100
+                if (categoryIndex in categoriesList.indices) {
+                    val selectedCategory = categoriesList[categoryIndex]
+                    mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
+                    firebaseDataLoad()
+                    supportActionBar?.title = selectedCategory.name
                 }
             }
         }
-
         binding.drawerLayout.closeDrawer(GravityCompat.START)
         return true
-    }
-
-    private fun shareApp() {
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            putExtra(Intent.EXTRA_SUBJECT, "Wallpaper App")
-            putExtra(Intent.EXTRA_TEXT, "Check out this amazing wallpaper app: https://play.google.com/store/apps/details?id=com.sky.wallapp")
-            type = "text/plain"
-        }
-        startActivity(Intent.createChooser(intent, "Share via"))
     }
 }

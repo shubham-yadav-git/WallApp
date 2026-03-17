@@ -6,8 +6,7 @@
     android:minHeight="220dp"
     android:background="@drawable/nav_header_bg"
     android:padding="24dp"
-    android:fitsSystemWindows="true"
-    android:theme="@style/ThemeOverlay.AppCompat.Dark">
+    android:fitsSystemWindows="true">
 
     <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/imageView"
