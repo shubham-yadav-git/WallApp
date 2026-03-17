@@ -89,13 +89,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
                     subMenu?.clear()
 
-                    for (postSnapshot in snapshot.children) {
+                    snapshot.children.forEachIndexed { index, postSnapshot ->
                         val category = postSnapshot.getValue(Category::class.java)
 
                         category?.let {
                             categoriesList.add(it)
 
-                            val itemId = categoriesList.size + 100
+                            val itemId = index + 100
 
                             subMenu?.add(0, itemId, Menu.NONE, it.name)
                                 ?.setIcon(R.drawable.ic_action_category)
