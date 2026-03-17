@@ -4,34 +4,27 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Premium Minimalist Branding - "The Infinite Aperture" -->
-    <!-- Represents both a camera lens and a portal to new wallpapers -->
+    <!-- Premium Brand Identity: "Summit Wallpapers" -->
+    <!-- A bold, geometric W that doubles as twin mountain peaks -->
 
     <group
         android:translateX="14"
-        android:translateY="14">
+        android:translateY="24">
 
-        <!-- Main Circular Frame -->
+        <!-- Back Peak (Semi-transparent for depth) -->
+        <path
+            android:fillColor="#80FFFFFF"
+            android:pathData="M20,60 L45,15 L70,60 Z" />
+
+        <!-- Front Peak (Main stylized W) -->
         <path
             android:fillColor="#FFFFFF"
-            android:pathData="M40,0C17.9,0,0,17.9,0,40s17.9,40,40,40s40,-17.9,40,-40S62.1,0,40,0z M40,74C21.2,74,6,58.8,6,40S21.2,6,40,6s34,15.2,34,34S58.8,74,40,74z" />
+            android:pathData="M0,60 L25,10 L45,45 L60,15 L80,60 H65 L45,25 L25,60 Z" />
 
-        <!-- Interior Abstract Peaks (Representing Scenery) -->
-        <path
-            android:fillColor="#CCFFFFFF"
-            android:pathData="M15,55 L35,25 L50,45 L65,20 L75,55 Z" />
-
-        <!-- The "Focus" Point / Sun -->
+        <!-- The "Focus" Dot -->
         <path
             android:fillColor="#FFFFFF"
-            android:pathData="M55,15 A4,4 0,1,1 55,23 A4,4 0,1,1 55,15" />
-
-        <!-- Modern Stylized "W" at the bottom -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M30,62 L35,55 L40,62 L45,55 L50,62"
-            android:strokeWidth="2"
-            android:strokeColor="#FFFFFF" />
+            android:pathData="M65,8 A5,5 0,1,1 65,18 A5,5 0,1,1 65,8" />
 
     </group>
 

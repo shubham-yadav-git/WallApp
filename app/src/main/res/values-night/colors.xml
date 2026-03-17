@@ -22,6 +22,9 @@
     <!-- Dark Mode Splash Background -->
     <color name="splash_background">#1C1B1F</color>
 
+    <!-- App Icon Colors synchronized with Splash Background -->
+    <color name="ic_launcher_background">@color/splash_background</color>
+
     <!-- Legacy support -->
     <color name="colorPrimary">@color/primary</color>
     <color name="colorPrimaryDark">#000000</color>
