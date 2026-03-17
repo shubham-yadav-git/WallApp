@@ -37,10 +37,11 @@
         <item name="colorOnSurface">@color/onSurface</item>
     </style>
 
+    <!-- Refined Splash Screen Theme -->
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/surface</item>
+        <item name="windowSplashScreenBackground">@color/primary</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/wp_logo_512dp</item>
-        <item name="windowSplashScreenIconBackgroundColor">@color/surface</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/primary</item>
         <item name="postSplashScreenTheme">@style/AppTheme</item>
     </style>
 
