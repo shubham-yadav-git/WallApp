@@ -7,14 +7,13 @@
         <item
             android:id="@+id/nav_home"
             android:icon="@drawable/ic_home_black_24dp"
-            android:title="All Wallpapers" />
+            android:title="Trending" />
     </group>
 
-    <item android:title="Categories">
-        <menu>
-            <!-- Dynamic categories will be added here programmatically -->
-            <group id="@+id/group_categories" />
-        </menu>
+    <item
+        android:id="@+id/nav_categories_parent"
+        android:title="Categories">
+        <menu />
     </item>
 
     <item android:title="Support &amp; Community">

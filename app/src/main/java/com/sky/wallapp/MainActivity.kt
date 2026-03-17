@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private var mRef: DatabaseReference? = null
     private var firebaseRecyclerAdapter: FirebaseRecyclerAdapter<Model, ViewHolder>? = null
     private var categoriesList = mutableListOf<Category>()
+    private var isTrendingMode = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -63,7 +64,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         mRef = firebaseDatabase?.getReference("random")
         
         initRecyclerView()
-        setupAdapter(mRef!!)
         loadCategoriesToDrawer()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -78,27 +78,98 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun loadCategoriesToDrawer() {
-        firebaseDatabase?.getReference("categories")?.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                categoriesList.clear()
-                val menu = binding.navView.menu
-                val categoryGroup = menu.findItem(R.id.group_categories)?.subMenu ?: menu
-                
-                for (postSnapshot in snapshot.children) {
-                    val category = postSnapshot.getValue(Category::class.java)
-                    category?.let { 
-                        categoriesList.add(it)
-                        val itemId = categoriesList.size + 100 
-                        categoryGroup.add(R.id.group_categories, itemId, Menu.NONE, it.name)
-                            .setIcon(R.drawable.ic_action_category)
+        firebaseDatabase?.getReference("categories")
+            ?.addValueEventListener(object : ValueEventListener {
+
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    categoriesList.clear()
+
+                    val menu = binding.navView.menu
+                    val subMenu = menu.findItem(R.id.nav_categories_parent).subMenu
+
+                    subMenu?.clear()
+
+                    for (postSnapshot in snapshot.children) {
+                        val category = postSnapshot.getValue(Category::class.java)
+
+                        category?.let {
+                            categoriesList.add(it)
+
+                            val itemId = categoriesList.size + 100
+
+                            subMenu?.add(0, itemId, Menu.NONE, it.name)
+                                ?.setIcon(R.drawable.ic_action_category)
+                        }
+                    }
+                    
+                    if (isTrendingMode) {
+                        loadTrending()
                     }
                 }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Toast.makeText(this@MainActivity, "Failed to load categories", Toast.LENGTH_SHORT).show()
+                }
+            })
+    }
+
+    private fun loadTrending() {
+        isTrendingMode = true
+        supportActionBar?.title = "Trending"
+        binding.navView.setCheckedItem(R.id.nav_home)
+        
+        if (categoriesList.isEmpty()) {
+            // If categories haven't loaded yet, wait for onDataChange
+            return
+        }
+
+        val allPhotos = mutableListOf<Model>()
+        var categoriesProcessed = 0
+        val totalCategories = categoriesList.size
+
+        for (category in categoriesList) {
+            val path = category.path ?: continue
+            firebaseDatabase?.getReference(path)?.limitToFirst(20)
+                ?.addListenerForSingleValueEvent(object : ValueEventListener {
+                    override fun onDataChange(snapshot: DataSnapshot) {
+                        for (postSnapshot in snapshot.children) {
+                            postSnapshot.getValue(Model::class.java)?.let { allPhotos.add(it) }
+                        }
+                        categoriesProcessed++
+                        if (categoriesProcessed == totalCategories) {
+                            displayTrending(allPhotos)
+                        }
+                    }
+
+                    override fun onCancelled(error: DatabaseError) {
+                        categoriesProcessed++
+                        if (categoriesProcessed == totalCategories) {
+                            displayTrending(allPhotos)
+                        }
+                    }
+                })
+        }
+    }
+
+    private fun displayTrending(photos: MutableList<Model>) {
+        photos.shuffle()
+        
+        firebaseRecyclerAdapter?.stopListening()
+        firebaseRecyclerAdapter = null
+        
+        val adapter = object : RecyclerView.Adapter<ViewHolder>() {
+            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+                val view = LayoutInflater.from(parent.context).inflate(R.layout.row, parent, false)
+                return ViewHolder(view)
             }
 
-            override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(this@MainActivity, "Failed to load categories", Toast.LENGTH_SHORT).show()
+            override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+                bindWallpaper(holder, photos[position])
             }
-        })
+
+            override fun getItemCount(): Int = photos.size
+        }
+        binding.appBarMain.contentMain.recyclerView.adapter = adapter
     }
 
     private fun initRecyclerView() {
@@ -108,7 +179,64 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
     }
 
+    private fun bindWallpaper(holder: ViewHolder, model: Model) {
+        holder.itemView.tag = false 
+
+        val cloudinaryUrl = model.cloudinaryUrl
+        val imageUrl: String?
+        val thumbUrl: String?
+
+        if (!cloudinaryUrl.isNullOrEmpty()) {
+            thumbUrl = cloudinaryUrl.replace("/upload/", "/upload/w_300,q_auto,f_auto/")
+            imageUrl = cloudinaryUrl.replace("/upload/", "/upload/q_auto,f_auto/")
+        } else {
+            thumbUrl = if (!model.thumbs.isNullOrEmpty()) model.thumbs else model.image
+            imageUrl = model.image
+        }
+
+        Glide.with(this@MainActivity)
+            .load(thumbUrl)
+            .centerCrop()
+            .thumbnail(
+                if (!cloudinaryUrl.isNullOrEmpty()) {
+                    Glide.with(this@MainActivity).load(cloudinaryUrl.replace("/upload/", "/upload/w_50,q_auto,f_auto/")).centerCrop()
+                } else if (!model.thumbs.isNullOrEmpty()) {
+                    Glide.with(this@MainActivity).load(model.thumbs).centerCrop()
+                } else null
+            )
+            .diskCacheStrategy(DiskCacheStrategy.ALL)
+            .placeholder(R.color.surfaceVariant)
+            .error(R.mipmap.ic_launcher_round)
+            .listener(object : RequestListener<Drawable> {
+                override fun onLoadFailed(e: GlideException?, modelObj: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
+                    holder.itemView.tag = false
+                    return false
+                }
+
+                override fun onResourceReady(resource: Drawable, modelObj: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean): Boolean {
+                    holder.itemView.tag = true 
+                    return false
+                }
+            })
+            .into(holder.imageView)
+
+        holder.textView.text = model.title
+        holder.cardViewParent.setOnClickListener {
+            val isLoaded = holder.itemView.tag as? Boolean ?: false
+            if (isLoaded) {
+                val intent = Intent(this@MainActivity, ImageActivity::class.java).apply {
+                    putExtra("title", model.title)
+                    putExtra("image", imageUrl)
+                }
+                startActivity(intent)
+            } else {
+                Toast.makeText(this@MainActivity, "Please wait for the image to load", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     private fun setupAdapter(query: Query) {
+        isTrendingMode = false
         firebaseRecyclerAdapter?.stopListening()
         
         val options = FirebaseRecyclerOptions.Builder<Model>()
@@ -117,59 +245,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         firebaseRecyclerAdapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
-                holder.itemView.tag = false 
-
-                val cloudinaryUrl = model.cloudinaryUrl
-                val imageUrl: String?
-                val thumbUrl: String?
-
-                if (!cloudinaryUrl.isNullOrEmpty()) {
-                    thumbUrl = cloudinaryUrl.replace("/upload/", "/upload/w_300,q_auto,f_auto/")
-                    imageUrl = cloudinaryUrl.replace("/upload/", "/upload/q_auto,f_auto/")
-                } else {
-                    thumbUrl = if (!model.thumbs.isNullOrEmpty()) model.thumbs else model.image
-                    imageUrl = model.image
-                }
-
-                Glide.with(this@MainActivity)
-                    .load(thumbUrl)
-                    .centerCrop()
-                    .thumbnail(
-                        if (!cloudinaryUrl.isNullOrEmpty()) {
-                            Glide.with(this@MainActivity).load(cloudinaryUrl.replace("/upload/", "/upload/w_50,q_auto,f_auto/")).centerCrop()
-                        } else if (!model.thumbs.isNullOrEmpty()) {
-                            Glide.with(this@MainActivity).load(model.thumbs).centerCrop()
-                        } else null
-                    )
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .placeholder(R.color.surfaceVariant)
-                    .error(R.mipmap.ic_launcher_round)
-                    .listener(object : RequestListener<Drawable> {
-                        override fun onLoadFailed(e: GlideException?, modelObj: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
-                            holder.itemView.tag = false
-                            return false
-                        }
-
-                        override fun onResourceReady(resource: Drawable, modelObj: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean): Boolean {
-                            holder.itemView.tag = true 
-                            return false
-                        }
-                    })
-                    .into(holder.imageView)
-
-                holder.textView.text = model.title
-                holder.cardViewParent.setOnClickListener {
-                    val isLoaded = holder.itemView.tag as? Boolean ?: false
-                    if (isLoaded) {
-                        val intent = Intent(this@MainActivity, ImageActivity::class.java).apply {
-                            putExtra("title", model.title)
-                            putExtra("image", imageUrl)
-                        }
-                        startActivity(intent)
-                    } else {
-                        Toast.makeText(this@MainActivity, "Please wait for the image to load", Toast.LENGTH_SHORT).show()
-                    }
-                }
+                bindWallpaper(holder, model)
             }
 
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -184,13 +260,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun firebaseDataLoad() {
-        setupAdapter(mRef!!)
+        mRef?.let { setupAdapter(it) }
     }
 
     private fun firebaseSearch(searchText: String) {
         val queryText = searchText.lowercase()
         val searchQuery = mRef?.orderByChild("search")?.startAt(queryText)?.endAt(queryText + "\uf8ff")
-        setupAdapter(searchQuery!!)
+        searchQuery?.let { setupAdapter(it) }
     }
 
     override fun onDestroy() {
@@ -238,6 +314,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 val selectedCategory = categoriesList[i]
                 mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
                 firebaseDataLoad()
+                supportActionBar?.title = selectedCategory.name
             }
             .show()
     }
@@ -255,8 +332,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     override fun onNavigationItemSelected(menuItem: MenuItem): Boolean {
         when (val id = menuItem.itemId) {
             R.id.nav_home -> {
-                mRef = firebaseDatabase?.getReference("random")
-                firebaseDataLoad()
+                loadTrending()
             }
             R.id.nav_contact -> {
                 val intent = Intent(Intent.ACTION_SEND).apply {
