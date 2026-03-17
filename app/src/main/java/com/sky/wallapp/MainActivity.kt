@@ -253,9 +253,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     override fun onNavigationItemSelected(menuItem: MenuItem): Boolean {
-        val id = menuItem.itemId
-        
-        when (id) {
+        when (val id = menuItem.itemId) {
             R.id.nav_home -> {
                 mRef = firebaseDatabase?.getReference("random")
                 firebaseDataLoad()
