@@ -22,7 +22,7 @@
         android:fitsSystemWindows="false"
         app:headerLayout="@layout/nav_header_main"
         app:menu="@menu/activity_main_drawer"
-        app:itemShapeFillColor="@color/primaryContainer"
+        app:itemShapeFillColor="@color/nav_item_background"
         app:itemShapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.ExtraLarge"
         app:itemVerticalPadding="12dp"
         app:itemIconPadding="24dp"
@@ -30,8 +30,9 @@
         app:itemShapeInsetBottom="4dp"
         app:itemShapeInsetStart="16dp"
         app:itemShapeInsetEnd="16dp"
-        app:itemIconTint="@color/primary"
-        app:itemTextColor="@color/onSurface"
+        app:itemIconTint="@color/nav_item_icon_tint"
+        app:itemTextColor="@color/nav_item_text_color"
+        app:subheaderInsetStart="16dp"
         android:background="@color/surface">
 
         <androidx.constraintlayout.widget.ConstraintLayout
