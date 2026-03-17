@@ -99,6 +99,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
                             subMenu?.add(0, itemId, Menu.NONE, it.name)
                                 ?.setIcon(R.drawable.ic_action_category)
+                                ?.setCheckable(true)
                         }
                     }
                     
@@ -350,6 +351,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         when (val id = menuItem.itemId) {
             R.id.nav_home -> {
                 loadTrending()
+                menuItem.isChecked = true
             }
             R.id.nav_contact -> {
                 val intent = Intent(Intent.ACTION_SEND).apply {
@@ -366,6 +368,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
                     firebaseDataLoad()
                     supportActionBar?.title = selectedCategory.name
+                    menuItem.isChecked = true
                 }
             }
         }

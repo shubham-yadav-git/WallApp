@@ -8,13 +8,13 @@
             android:id="@+id/nav_home"
             android:icon="@drawable/ic_home_black_24dp"
             android:title="Trending" />
-    </group>
 
-    <item
-        android:id="@+id/nav_categories_parent"
-        android:title="Categories">
-        <menu />
-    </item>
+        <item
+            android:id="@+id/nav_categories_parent"
+            android:title="Categories">
+            <menu />
+        </item>
+    </group>
 
     <item android:title="Support &amp; Community">
         <menu>
