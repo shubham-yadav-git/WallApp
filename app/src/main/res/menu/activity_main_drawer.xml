@@ -17,7 +17,7 @@
     </item>
 
     <item android:title="Support &amp; Community">
-        <menu android:layout_height="wrap_content">
+        <menu>
             <item
                 android:id="@+id/nav_contact"
                 android:icon="@drawable/ic_contact_mail"
