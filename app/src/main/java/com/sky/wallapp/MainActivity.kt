@@ -21,12 +21,7 @@ import com.firebase.ui.database.FirebaseRecyclerAdapter
 import com.firebase.ui.database.FirebaseRecyclerOptions
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationView
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.Query
-import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.*
 import com.sky.wallapp.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -38,6 +33,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private val categoriesList = mutableListOf<Category>()
     private var categoryAdapter: CategoryAdapter? = null
     private var isTrendingMode = true
+    private var fullList = mutableListOf<Model>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -48,9 +44,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setSupportActionBar(binding.appBarMain.toolbar)
 
         firebaseDatabase = FirebaseDatabase.getInstance()
-        
-        // Initial state: Trending
-        loadTrending()
 
         val toggle = ActionBarDrawerToggle(
             this, binding.drawerLayout, binding.appBarMain.toolbar,
@@ -60,7 +53,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         toggle.syncState()
 
         binding.navView.setNavigationItemSelectedListener(this)
-
         binding.appBarMain.contentMain.recyclerView.layoutManager = GridLayoutManager(this, 2)
 
         loadCategoriesToDrawer()
@@ -78,6 +70,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private fun firebaseDataLoad() {
         val query: Query = mRef!!
+
         val options = FirebaseRecyclerOptions.Builder<Model>()
             .setQuery(query, Model::class.java)
             .build()
@@ -92,7 +85,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
                 holder.textView.text = model.title
                 Glide.with(applicationContext).load(model.image).into(holder.imageView)
-                
+
                 holder.itemView.setOnClickListener {
                     val intent = Intent(this@MainActivity, ImageActivity::class.java)
                     intent.putExtra("image", model.image)
@@ -119,20 +112,26 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                         }
                     }
 
-                    // Setup the compact categories RecyclerView inside the drawer
+                    // ✅ Load trending AFTER categories
+                    if (isTrendingMode) {
+                        loadTrending()
+                    }
+
                     val categoriesItem = binding.navView.menu.findItem(R.id.nav_categories_container)
                     val recyclerView = categoriesItem.actionView as? RecyclerView
-                    
+
                     recyclerView?.apply {
                         layoutManager = GridLayoutManager(this@MainActivity, 2)
                         categoryAdapter = CategoryAdapter(categoriesList) { selectedCategory ->
                             isTrendingMode = false
+
+                            this@MainActivity.adapter?.stopListening()
+
                             mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
                             firebaseDataLoad()
                             supportActionBar?.title = selectedCategory.name
                             binding.drawerLayout.closeDrawer(GravityCompat.START)
-                            
-                            // Uncheck Trending when a category is selected
+
                             binding.navView.menu.findItem(R.id.nav_home).isChecked = false
                             binding.navView.setCheckedItem(R.id.nav_categories_section)
                         }
@@ -148,15 +147,82 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private fun loadTrending() {
         isTrendingMode = true
-        categoryAdapter?.clearSelection()
-        mRef = firebaseDatabase?.getReference("trending")
-        firebaseDataLoad()
         supportActionBar?.title = "Trending"
         binding.navView.setCheckedItem(R.id.nav_home)
+
+        adapter?.stopListening()
+        adapter = null
+
+        if (categoriesList.isEmpty()) return
+
+        val allPhotos = mutableListOf<Model>()
+        var categoriesProcessed = 0
+        val totalCategories = categoriesList.size
+
+        for (category in categoriesList) {
+            val path = category.path ?: continue
+
+            firebaseDatabase?.getReference(path)
+                ?.limitToFirst(20)
+                ?.addListenerForSingleValueEvent(object : ValueEventListener {
+
+                    override fun onDataChange(snapshot: DataSnapshot) {
+                        for (postSnapshot in snapshot.children) {
+                            val model = postSnapshot.getValue(Model::class.java)
+                            if (model != null) {
+                                allPhotos.add(model)
+                            }
+                        }
+
+                        categoriesProcessed++
+
+                        if (categoriesProcessed == totalCategories) {
+                            fullList.clear()
+                            fullList.addAll(allPhotos)
+
+                            val finalList = allPhotos.shuffled()
+
+                            binding.appBarMain.contentMain.recyclerView.adapter =
+                                object : RecyclerView.Adapter<ViewHolder>() {
+
+                                    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+                                        val view = LayoutInflater.from(parent.context)
+                                            .inflate(R.layout.row, parent, false)
+                                        return ViewHolder(view)
+                                    }
+
+                                    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+                                        val model = finalList[position]
+
+                                        holder.textView.text = model.title
+                                        Glide.with(this@MainActivity)
+                                            .load(model.image)
+                                            .into(holder.imageView)
+
+                                        holder.itemView.setOnClickListener {
+                                            val intent = Intent(this@MainActivity, ImageActivity::class.java)
+                                            intent.putExtra("image", model.image)
+                                            intent.putExtra("title", model.title)
+                                            startActivity(intent)
+                                        }
+                                    }
+
+                                    override fun getItemCount(): Int = finalList.size
+                                }
+                        }
+                    }
+
+                    override fun onCancelled(error: DatabaseError) {
+                        categoriesProcessed++
+                    }
+                })
+        }
     }
 
     private fun localSearch(searchText: String) {
-        val firebaseSearchQuery = mRef?.orderByChild("title")?.startAt(searchText)?.endAt(searchText + "\uf8ff")
+        val firebaseSearchQuery = mRef?.orderByChild("title")
+            ?.startAt(searchText)
+            ?.endAt(searchText + "\uf8ff")
 
         val options = FirebaseRecyclerOptions.Builder<Model>()
             .setQuery(firebaseSearchQuery!!, Model::class.java)
@@ -188,9 +254,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu, menu)
-        val menuItem = menu.findItem(R.id.action_search)
-        val searchView = menuItem.actionView as? SearchView
-        searchView?.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+        val searchView = menu.findItem(R.id.action_search).actionView as SearchView
+
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(s: String): Boolean {
                 localSearch(s)
                 return false
@@ -201,86 +267,50 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 return false
             }
         })
-        return super.onCreateOptionsMenu(menu)
+        return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == R.id.categories) {
-            showCategoriesDialog()
-        }
-        return super.onOptionsItemSelected(item)
-    }
+    override fun onNavigationItemSelected(menuItem: MenuItem): Boolean {
+        when (menuItem.itemId) {
+            R.id.nav_home -> loadTrending()
 
-    private fun showCategoriesDialog() {
-        if (categoriesList.isEmpty()) {
-            Toast.makeText(this, "Loading categories...", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val categoryNames = categoriesList.map { it.name ?: "Unknown" }.toTypedArray()
-        
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Categories")
-            .setIcon(R.drawable.ic_action_category)
-            .setItems(categoryNames) { _, i ->
-                val selectedCategory = categoriesList[i]
-                isTrendingMode = false
-                mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
-                firebaseDataLoad()
-                supportActionBar?.title = selectedCategory.name
-                
-                // Update navigation view state
-                binding.navView.menu.findItem(R.id.nav_home).isChecked = false
-                binding.navView.setCheckedItem(R.id.nav_categories_section)
+            R.id.nav_contact -> {
+                val intent = Intent(Intent.ACTION_SEND)
+                intent.putExtra(Intent.EXTRA_EMAIL, arrayOf("shubhamskyjnp@gmail.com"))
+                intent.putExtra(Intent.EXTRA_SUBJECT, "Feedback for WallApp")
+                intent.type = "message/rfc822"
+                startActivity(Intent.createChooser(intent, "Choose Email Client"))
             }
-            .show()
+
+            R.id.nav_share -> {
+                val intent = Intent(Intent.ACTION_SEND)
+                intent.type = "text/plain"
+                intent.putExtra(Intent.EXTRA_TEXT,
+                    "https://play.google.com/store/apps/details?id=$packageName")
+                startActivity(Intent.createChooser(intent, "Share via"))
+            }
+
+            R.id.nav_rate_us -> {
+                startActivity(Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
+            }
+
+            R.id.nav_privacy -> {
+                startActivity(Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/shubhamy-google/WallApp/blob/main/privacy_policy.md")))
+            }
+        }
+
+        binding.drawerLayout.closeDrawer(GravityCompat.START)
+        return true
     }
 
     private fun showExitDialog() {
         MaterialAlertDialogBuilder(this)
             .setTitle("Exit App")
             .setMessage("Are you sure you want to exit?")
-            .setIcon(R.drawable.ic_exit_to_app_black_24dp)
             .setPositiveButton("Yes") { _, _ -> finish() }
             .setNegativeButton("No", null)
             .show()
-    }
-
-    override fun onNavigationItemSelected(menuItem: MenuItem): Boolean {
-        when (menuItem.itemId) {
-            R.id.nav_home -> {
-                loadTrending()
-            }
-            R.id.nav_contact -> {
-                val intent = Intent(Intent.ACTION_SEND).apply {
-                    putExtra(Intent.EXTRA_EMAIL, arrayOf("shubhamskyjnp@gmail.com"))
-                    putExtra(Intent.EXTRA_SUBJECT, "Feedback for WallApp")
-                    type = "message/rfc822"
-                }
-                startActivity(Intent.createChooser(intent, "Choose Email Client"))
-            }
-            R.id.nav_share -> {
-                val intent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_SUBJECT, "Download WallApp")
-                    putExtra(Intent.EXTRA_TEXT, "Check out this cool wallpaper app: https://play.google.com/store/apps/details?id=${packageName}")
-                }
-                startActivity(Intent.createChooser(intent, "Share via"))
-            }
-            R.id.nav_rate_us -> {
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("https://play.google.com/store/apps/details?id=${packageName}")
-                }
-                startActivity(intent)
-            }
-            R.id.nav_privacy -> {
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("https://github.com/shubhamy-google/WallApp/blob/main/privacy_policy.md")
-                }
-                startActivity(intent)
-            }
-        }
-        binding.drawerLayout.closeDrawer(GravityCompat.START)
-        return true
     }
 }
