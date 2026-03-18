@@ -1,7 +1,7 @@
 package com.sky.wallapp
 
 import android.content.Intent
-import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
@@ -17,11 +17,6 @@ import androidx.core.view.GravityCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.DataSource
-import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.load.engine.GlideException
-import com.bumptech.glide.request.RequestListener
-import com.bumptech.glide.request.target.Target
 import com.firebase.ui.database.FirebaseRecyclerAdapter
 import com.firebase.ui.database.FirebaseRecyclerOptions
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -39,10 +34,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private lateinit var binding: ActivityMainBinding
     private var firebaseDatabase: FirebaseDatabase? = null
     private var mRef: DatabaseReference? = null
-    private var firebaseRecyclerAdapter: FirebaseRecyclerAdapter<Model, ViewHolder>? = null
-    private var categoriesList = mutableListOf<Category>()
+    private var adapter: FirebaseRecyclerAdapter<Model, ViewHolder>? = null
+    private val categoriesList = mutableListOf<Category>()
     private var isTrendingMode = true
-    private var fullList = mutableListOf<Model>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -51,20 +45,22 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setContentView(binding.root)
 
         setSupportActionBar(binding.appBarMain.toolbar)
-        
+
+        firebaseDatabase = FirebaseDatabase.getInstance()
+        mRef = firebaseDatabase?.getReference("trending")
+
         val toggle = ActionBarDrawerToggle(
             this, binding.drawerLayout, binding.appBarMain.toolbar,
             R.string.navigation_drawer_open, R.string.navigation_drawer_close
         )
         binding.drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
-        binding.navView.setNavigationItemSelectedListener(this)
-        binding.navView.setCheckedItem(R.id.nav_home)
 
-        firebaseDatabase = FirebaseDatabase.getInstance()
-        mRef = firebaseDatabase?.getReference("random")
-        
-        initRecyclerView()
+        binding.navView.setNavigationItemSelectedListener(this)
+
+        binding.appBarMain.contentMain.recyclerView.layoutManager = GridLayoutManager(this, 2)
+
+        firebaseDataLoad()
         loadCategoriesToDrawer()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -76,6 +72,36 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 }
             }
         })
+    }
+
+    private fun firebaseDataLoad() {
+        val query: Query = mRef!!
+        val options = FirebaseRecyclerOptions.Builder<Model>()
+            .setQuery(query, Model::class.java)
+            .build()
+
+        adapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
+            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+                val view = LayoutInflater.from(parent.context)
+                    .inflate(R.layout.row, parent, false)
+                return ViewHolder(view)
+            }
+
+            override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
+                holder.textView.text = model.title
+                Glide.with(applicationContext).load(model.image).into(holder.imageView)
+                
+                holder.itemView.setOnClickListener {
+                    val intent = Intent(this@MainActivity, ImageActivity::class.java)
+                    intent.putExtra("image", model.image)
+                    intent.putExtra("title", model.title)
+                    startActivity(intent)
+                }
+            }
+        }
+
+        binding.appBarMain.contentMain.recyclerView.adapter = adapter
+        adapter?.startListening()
     }
 
     private fun loadCategoriesToDrawer() {
@@ -118,181 +144,40 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun loadTrending() {
-        isTrendingMode = true
+        mRef = firebaseDatabase?.getReference("trending")
+        firebaseDataLoad()
         supportActionBar?.title = "Trending"
-        binding.navView.setCheckedItem(R.id.nav_home)
-        
-        if (categoriesList.isEmpty()) {
-            return
-        }
-
-        val allPhotos = mutableListOf<Model>()
-        var categoriesProcessed = 0
-        val totalCategories = categoriesList.size
-
-        for (category in categoriesList) {
-            val path = category.path ?: continue
-            firebaseDatabase?.getReference(path)?.limitToFirst(20)
-                ?.addListenerForSingleValueEvent(object : ValueEventListener {
-                    override fun onDataChange(snapshot: DataSnapshot) {
-                        for (postSnapshot in snapshot.children) {
-                            postSnapshot.getValue(Model::class.java)?.let { allPhotos.add(it) }
-                        }
-                        categoriesProcessed++
-                        if (categoriesProcessed == totalCategories) {
-                            fullList.clear()
-                            fullList.addAll(allPhotos)
-                            displayList(allPhotos.shuffled())
-                        }
-                    }
-
-                    override fun onCancelled(error: DatabaseError) {
-                        categoriesProcessed++
-                        if (categoriesProcessed == totalCategories) {
-                            fullList.clear()
-                            fullList.addAll(allPhotos)
-                            displayList(allPhotos.shuffled())
-                        }
-                    }
-                })
-        }
-    }
-
-    private fun displayList(photos: List<Model>) {
-        firebaseRecyclerAdapter?.stopListening()
-        firebaseRecyclerAdapter = null
-        
-        val adapter = object : RecyclerView.Adapter<ViewHolder>() {
-            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-                val view = LayoutInflater.from(parent.context).inflate(R.layout.row, parent, false)
-                return ViewHolder(view)
-            }
-
-            override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-                bindWallpaper(holder, photos[position])
-            }
-
-            override fun getItemCount(): Int = photos.size
-        }
-        binding.appBarMain.contentMain.recyclerView.adapter = adapter
-    }
-
-    private fun initRecyclerView() {
-        binding.appBarMain.contentMain.recyclerView.apply {
-            setHasFixedSize(true)
-            itemAnimator = null 
-        }
-    }
-
-    private fun bindWallpaper(holder: ViewHolder, model: Model) {
-        holder.itemView.tag = false 
-
-        val cloudinaryUrl = model.cloudinaryUrl
-        val imageUrl: String?
-        val thumbUrl: String?
-
-        if (!cloudinaryUrl.isNullOrEmpty()) {
-            thumbUrl = cloudinaryUrl.replace("/upload/", "/upload/w_300,q_auto,f_auto/")
-            imageUrl = cloudinaryUrl.replace("/upload/", "/upload/q_auto,f_auto/")
-        } else {
-            thumbUrl = if (!model.thumbs.isNullOrEmpty()) model.thumbs else model.image
-            imageUrl = model.image
-        }
-
-        Glide.with(this@MainActivity)
-            .load(thumbUrl)
-            .centerCrop()
-            .thumbnail(
-                if (!cloudinaryUrl.isNullOrEmpty()) {
-                    Glide.with(this@MainActivity).load(cloudinaryUrl.replace("/upload/", "/upload/w_50,q_auto,f_auto/")).centerCrop()
-                } else if (!model.thumbs.isNullOrEmpty()) {
-                    Glide.with(this@MainActivity).load(model.thumbs).centerCrop()
-                } else null
-            )
-            .diskCacheStrategy(DiskCacheStrategy.ALL)
-            .placeholder(R.color.surfaceVariant)
-            .error(R.mipmap.ic_launcher_round)
-            .listener(object : RequestListener<Drawable> {
-                override fun onLoadFailed(e: GlideException?, modelObj: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
-                    holder.itemView.tag = false
-                    return false
-                }
-
-                override fun onResourceReady(resource: Drawable, modelObj: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean): Boolean {
-                    holder.itemView.tag = true 
-                    return false
-                }
-            })
-            .into(holder.imageView)
-
-        holder.textView.text = model.title
-        holder.cardViewParent.setOnClickListener {
-            val isLoaded = holder.itemView.tag as? Boolean ?: false
-            if (isLoaded) {
-                val intent = Intent(this@MainActivity, ImageActivity::class.java).apply {
-                    putExtra("title", model.title)
-                    putExtra("image", imageUrl)
-                }
-                startActivity(intent)
-            } else {
-                Toast.makeText(this@MainActivity, "Please wait for the image to load", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun setupAdapter(query: Query) {
-        isTrendingMode = false
-        firebaseRecyclerAdapter?.stopListening()
-        
-        val options = FirebaseRecyclerOptions.Builder<Model>()
-            .setQuery(query, Model::class.java)
-            .build()
-
-        firebaseRecyclerAdapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
-            override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
-                bindWallpaper(holder, model)
-            }
-
-            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-                val view = LayoutInflater.from(parent.context).inflate(R.layout.row, parent, false)
-                return ViewHolder(view)
-            }
-
-            override fun onDataChanged() {
-                super.onDataChanged()
-                fullList.clear()
-                for (i in 0 until snapshots.size) {
-                    fullList.add(snapshots[i])
-                }
-            }
-        }
-        
-        firebaseRecyclerAdapter?.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
-        firebaseRecyclerAdapter?.startListening()
-        binding.appBarMain.contentMain.recyclerView.adapter = firebaseRecyclerAdapter
-    }
-
-    private fun firebaseDataLoad() {
-        mRef?.let { setupAdapter(it) }
     }
 
     private fun localSearch(searchText: String) {
-        if (searchText.isEmpty()) {
-            if (isTrendingMode) displayList(fullList.shuffled()) else displayList(fullList)
-            return
-        }
-        val queryText = searchText.lowercase()
-        val filteredList = fullList.filter { 
-            val titleMatch = it.title?.lowercase()?.contains(queryText) == true
-            val searchMatch = it.search?.lowercase()?.contains(queryText) == true
-            titleMatch || searchMatch
-        }
-        displayList(filteredList)
-    }
+        val firebaseSearchQuery = mRef?.orderByChild("title")?.startAt(searchText)?.endAt(searchText + "\uf8ff")
 
-    override fun onDestroy() {
-        super.onDestroy()
-        firebaseRecyclerAdapter?.stopListening()
+        val options = FirebaseRecyclerOptions.Builder<Model>()
+            .setQuery(firebaseSearchQuery!!, Model::class.java)
+            .build()
+
+        adapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
+            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+                val view = LayoutInflater.from(parent.context)
+                    .inflate(R.layout.row, parent, false)
+                return ViewHolder(view)
+            }
+
+            override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
+                holder.textView.text = model.title
+                Glide.with(applicationContext).load(model.image).into(holder.imageView)
+
+                holder.itemView.setOnClickListener {
+                    val intent = Intent(this@MainActivity, ImageActivity::class.java)
+                    intent.putExtra("image", model.image)
+                    intent.putExtra("title", model.title)
+                    startActivity(intent)
+                }
+            }
+        }
+
+        binding.appBarMain.contentMain.recyclerView.adapter = adapter
+        adapter?.startListening()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -373,10 +258,16 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 startActivity(Intent.createChooser(intent, "Share via"))
             }
             R.id.nav_rate_us -> {
-                // Rate app logic
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    data = Uri.parse("https://play.google.com/store/apps/details?id=${packageName}")
+                }
+                startActivity(intent)
             }
             R.id.nav_privacy -> {
-                // Privacy policy logic
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    data = Uri.parse("https://github.com/shubhamy-google/WallApp/blob/main/privacy_policy.md")
+                }
+                startActivity(intent)
             }
         }
         binding.drawerLayout.closeDrawer(GravityCompat.START)
