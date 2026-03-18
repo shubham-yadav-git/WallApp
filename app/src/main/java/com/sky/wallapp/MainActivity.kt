@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.GravityCompat
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
@@ -84,22 +85,24 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 override fun onDataChange(snapshot: DataSnapshot) {
                     categoriesList.clear()
 
-                    val menu = binding.navView.menu
-                    val subMenu = menu.findItem(R.id.nav_categories_parent).subMenu
-
-                    subMenu?.clear()
-
-                    snapshot.children.forEachIndexed { index, postSnapshot ->
-                        val category = postSnapshot.getValue(Category::class.java)
-
-                        category?.let {
+                    snapshot.children.forEach { postSnapshot ->
+                        postSnapshot.getValue(Category::class.java)?.let {
                             categoriesList.add(it)
+                        }
+                    }
 
-                            val itemId = index + 100
-
-                            subMenu?.add(0, itemId, Menu.NONE, it.name)
-                                ?.setIcon(R.drawable.ic_action_category)
-                                ?.setCheckable(true)
+                    // Setup the compact categories RecyclerView inside the drawer
+                    val categoriesItem = binding.navView.menu.findItem(R.id.nav_categories_container)
+                    val recyclerView = categoriesItem.actionView as? RecyclerView
+                    
+                    recyclerView?.apply {
+                        layoutManager = GridLayoutManager(this@MainActivity, 2)
+                        adapter = CategoryAdapter(categoriesList) { selectedCategory ->
+                            mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
+                            firebaseDataLoad()
+                            supportActionBar?.title = selectedCategory.name
+                            binding.drawerLayout.closeDrawer(GravityCompat.START)
+                            binding.navView.setCheckedItem(R.id.nav_categories_section)
                         }
                     }
                     
@@ -348,7 +351,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     override fun onNavigationItemSelected(menuItem: MenuItem): Boolean {
-        when (val id = menuItem.itemId) {
+        when (menuItem.itemId) {
             R.id.nav_home -> {
                 loadTrending()
                 menuItem.isChecked = true
@@ -361,15 +364,19 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 }
                 startActivity(Intent.createChooser(intent, "Choose Email Client"))
             }
-            else -> {
-                val categoryIndex = id - 100
-                if (categoryIndex in categoriesList.indices) {
-                    val selectedCategory = categoriesList[categoryIndex]
-                    mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
-                    firebaseDataLoad()
-                    supportActionBar?.title = selectedCategory.name
-                    menuItem.isChecked = true
+            R.id.nav_share -> {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "Download WallApp")
+                    putExtra(Intent.EXTRA_TEXT, "Check out this cool wallpaper app: https://play.google.com/store/apps/details?id=${packageName}")
                 }
+                startActivity(Intent.createChooser(intent, "Share via"))
+            }
+            R.id.nav_rate_us -> {
+                // Rate app logic
+            }
+            R.id.nav_privacy -> {
+                // Privacy policy logic
             }
         }
         binding.drawerLayout.closeDrawer(GravityCompat.START)
