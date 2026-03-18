@@ -50,7 +50,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         firebaseDatabase = FirebaseDatabase.getInstance()
         
         // Initial state: Trending
-        binding.navView.setCheckedItem(R.id.nav_home)
         loadTrending()
 
         val toggle = ActionBarDrawerToggle(
@@ -132,6 +131,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                             firebaseDataLoad()
                             supportActionBar?.title = selectedCategory.name
                             binding.drawerLayout.closeDrawer(GravityCompat.START)
+                            
+                            // Uncheck Trending when a category is selected
+                            binding.navView.menu.findItem(R.id.nav_home).isChecked = false
                             binding.navView.setCheckedItem(R.id.nav_categories_section)
                         }
                         adapter = categoryAdapter
@@ -150,6 +152,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         mRef = firebaseDatabase?.getReference("trending")
         firebaseDataLoad()
         supportActionBar?.title = "Trending"
+        binding.navView.setCheckedItem(R.id.nav_home)
     }
 
     private fun localSearch(searchText: String) {
@@ -225,9 +228,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
                 firebaseDataLoad()
                 supportActionBar?.title = selectedCategory.name
+                
+                // Update navigation view state
+                binding.navView.menu.findItem(R.id.nav_home).isChecked = false
                 binding.navView.setCheckedItem(R.id.nav_categories_section)
-                // Note: This dialog version won't update the drawer adapter selection easily 
-                // but clicking in the drawer will.
             }
             .show()
     }
@@ -246,7 +250,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         when (menuItem.itemId) {
             R.id.nav_home -> {
                 loadTrending()
-                menuItem.isChecked = true
             }
             R.id.nav_contact -> {
                 val intent = Intent(Intent.ACTION_SEND).apply {

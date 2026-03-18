@@ -16,13 +16,13 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingVertical="10dp"
-        android:paddingHorizontal="12dp">
+        android:paddingHorizontal="8dp">
 
         <ImageView
             android:id="@+id/category_icon"
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:layout_marginEnd="10dp"
+            android:layout_marginEnd="8dp"
             android:src="@drawable/ic_action_category"
             app:tint="@color/onSurfaceVariant" />
 
@@ -31,10 +31,11 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:maxLines="1"
+            android:maxLines="2"
             android:ellipsize="end"
             android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
             android:textColor="@color/onSurfaceVariant"
+            android:lineSpacingExtra="1dp"
             android:textStyle="bold" />
 
     </LinearLayout>
