@@ -43,7 +43,9 @@ class CategoryAdapter(
         
         holder.card.setCardBackgroundColor(ContextCompat.getColor(context, bgColor))
         holder.nameTv.setTextColor(ContextCompat.getColor(context, contentColor))
-        holder.iconIv.setColorFilter(ContextCompat.getColor(context, contentColor))
+        
+        // Remove manual color filter to allow original SVG/Drawable colors to show
+        holder.iconIv.clearColorFilter()
         
         // Use the gallery icon as the default/placeholder for everything
         val defaultIcon = R.drawable.ic_action_category
@@ -56,6 +58,8 @@ class CategoryAdapter(
                 .into(holder.iconIv)
         } else {
             holder.iconIv.setImageResource(defaultIcon)
+            // Apply tint only for the default vector icon if needed
+            holder.iconIv.setColorFilter(ContextCompat.getColor(context, contentColor))
         }
 
         holder.card.setOnClickListener {
