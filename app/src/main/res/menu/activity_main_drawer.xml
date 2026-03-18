@@ -6,7 +6,7 @@
     <group android:checkableBehavior="single">
         <item
             android:id="@+id/nav_home"
-            android:icon="@drawable/ic_home_black_24dp"
+            android:icon="@drawable/ic_fire_24dp"
             android:title="Trending" />
     </group>
 
@@ -17,11 +17,12 @@
     </item>
 
     <item android:title="Support &amp; Community">
-        <menu>
+        <menu android:layout_height="wrap_content">
             <item
                 android:id="@+id/nav_contact"
                 android:icon="@drawable/ic_contact_mail"
-                android:title="Send Feedback" />
+                android:title="Send Feedback"
+                />
             <item
                 android:id="@+id/nav_rate_us"
                 android:icon="@drawable/ic_rate_review_24dp"
