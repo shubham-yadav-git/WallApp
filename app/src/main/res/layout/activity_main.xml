@@ -5,7 +5,7 @@
     android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="false"
+    android:fitsSystemWindows="true"
     tools:openDrawer="start">
 
     <include
@@ -19,42 +19,43 @@
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        android:fitsSystemWindows="false"
+        android:fitsSystemWindows="true"
         app:headerLayout="@layout/nav_header_main"
         app:menu="@menu/activity_main_drawer"
         app:itemShapeFillColor="@color/nav_item_background"
-        app:itemShapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.ExtraLarge"
-        app:itemVerticalPadding="0dp"
-        app:itemIconPadding="24dp"
-        app:itemShapeInsetTop="0dp"
-        app:itemShapeInsetBottom="0dp"
-        app:itemShapeInsetStart="16dp"
-        app:itemShapeInsetEnd="16dp"
-        app:itemIconTint="@null"
+        app:itemShapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
+        app:itemVerticalPadding="4dp"
+        app:itemIconPadding="16dp"
+        app:itemHorizontalPadding="16dp"
+        app:itemShapeInsetStart="12dp"
+        app:itemShapeInsetEnd="12dp"
+        app:itemIconTint="@color/nav_item_text_color"
         app:itemTextColor="@color/nav_item_text_color"
         app:subheaderInsetStart="16dp"
-        android:background="@color/surface">
+        app:subheaderTextAppearance="@style/TextAppearance.Material3.LabelMedium"
+        android:background="?attr/colorSurface">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:padding="24dp">
+            android:paddingHorizontal="24dp"
+            android:paddingVertical="16dp">
 
             <View
                 android:id="@+id/divider"
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:alpha="0.1"
-                android:background="@color/onSurface"
+                android:alpha="0.05"
+                android:background="?attr/colorOnSurface"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
                 android:id="@+id/version_tv"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:alpha=".5"
+                android:layout_marginTop="12dp"
+                android:alpha="0.4"
                 android:text="@string/app_version"
                 android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
                 app:layout_constraintStart_toStartOf="parent"
@@ -63,10 +64,10 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:alpha=".5"
+                android:alpha="0.4"
                 android:text="@string/user_name"
                 android:textAllCaps="true"
-                android:letterSpacing="0.1"
+                android:letterSpacing="0.05"
                 android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="@id/version_tv" />
