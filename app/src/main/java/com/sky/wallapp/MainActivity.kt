@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private var mRef: DatabaseReference? = null
     private var adapter: FirebaseRecyclerAdapter<Model, ViewHolder>? = null
     private val categoriesList = mutableListOf<Category>()
+    private var categoryAdapter: CategoryAdapter? = null
     private var isTrendingMode = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,7 +48,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setSupportActionBar(binding.appBarMain.toolbar)
 
         firebaseDatabase = FirebaseDatabase.getInstance()
-        mRef = firebaseDatabase?.getReference("trending")
+        
+        // Initial state: Trending
+        binding.navView.setCheckedItem(R.id.nav_home)
+        loadTrending()
 
         val toggle = ActionBarDrawerToggle(
             this, binding.drawerLayout, binding.appBarMain.toolbar,
@@ -60,7 +64,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         binding.appBarMain.contentMain.recyclerView.layoutManager = GridLayoutManager(this, 2)
 
-        firebaseDataLoad()
         loadCategoriesToDrawer()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -123,17 +126,15 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     
                     recyclerView?.apply {
                         layoutManager = GridLayoutManager(this@MainActivity, 2)
-                        adapter = CategoryAdapter(categoriesList) { selectedCategory ->
+                        categoryAdapter = CategoryAdapter(categoriesList) { selectedCategory ->
+                            isTrendingMode = false
                             mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
                             firebaseDataLoad()
                             supportActionBar?.title = selectedCategory.name
                             binding.drawerLayout.closeDrawer(GravityCompat.START)
                             binding.navView.setCheckedItem(R.id.nav_categories_section)
                         }
-                    }
-                    
-                    if (isTrendingMode) {
-                        loadTrending()
+                        adapter = categoryAdapter
                     }
                 }
 
@@ -144,6 +145,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun loadTrending() {
+        isTrendingMode = true
+        categoryAdapter?.clearSelection()
         mRef = firebaseDatabase?.getReference("trending")
         firebaseDataLoad()
         supportActionBar?.title = "Trending"
@@ -218,9 +221,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             .setIcon(R.drawable.ic_action_category)
             .setItems(categoryNames) { _, i ->
                 val selectedCategory = categoriesList[i]
+                isTrendingMode = false
                 mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
                 firebaseDataLoad()
                 supportActionBar?.title = selectedCategory.name
+                binding.navView.setCheckedItem(R.id.nav_categories_section)
+                // Note: This dialog version won't update the drawer adapter selection easily 
+                // but clicking in the drawer will.
             }
             .show()
     }
