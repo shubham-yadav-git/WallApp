@@ -3,40 +3,52 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/category_card"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_margin="4dp"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="0dp"
-    app:strokeWidth="0dp"
+    android:layout_height="104dp"
+    android:layout_margin="5dp"
+    app:cardCornerRadius="18dp"
+    app:cardElevation="3dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="#26FFFFFF"
+    android:foreground="?attr/selectableItemBackground"
     app:cardBackgroundColor="@color/surfaceVariant">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingVertical="10dp"
-        android:paddingHorizontal="8dp">
+        android:layout_height="match_parent">
 
+        <!-- Full-bleed category image -->
         <ImageView
             android:id="@+id/category_icon"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginEnd="8dp"
-            android:src="@drawable/ic_action_category" />
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop" />
 
+        <!-- Gradient scrim — darkest at bottom for text legibility -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/category_scrim" />
+
+        <!-- Category label overlaid at the bottom -->
         <TextView
             android:id="@+id/category_name"
-            android:layout_width="0dp"
-            android:layout_weight="1"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:maxLines="2"
+            android:layout_gravity="bottom"
+            android:paddingHorizontal="10dp"
+            android:paddingBottom="11dp"
+            android:paddingTop="26dp"
+            android:maxLines="1"
             android:ellipsize="end"
-            android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
-            android:textColor="@color/onSurfaceVariant"
-            android:lineSpacingExtra="1dp"
-            android:textStyle="bold" />
+            android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            android:letterSpacing="0.02"
+            android:shadowColor="#80000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="4" />
 
-    </LinearLayout>
+    </FrameLayout>
 
 </com.google.android.material.card.MaterialCardView>

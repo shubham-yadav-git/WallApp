@@ -122,7 +122,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
                     recyclerView?.apply {
                         layoutManager = GridLayoutManager(this@MainActivity, 2)
-                        categoryAdapter = CategoryAdapter(categoriesList) { selectedCategory ->
+                        categoryAdapter = CategoryAdapter(categoriesList, firebaseDatabase!!) { selectedCategory ->
                             isTrendingMode = false
 
                             this@MainActivity.adapter?.stopListening()
@@ -268,6 +268,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
         })
         return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == R.id.categories) {
+            binding.drawerLayout.openDrawer(GravityCompat.START)
+            return true
+        }
+        return super.onOptionsItemSelected(item)
     }
 
     override fun onNavigationItemSelected(menuItem: MenuItem): Boolean {

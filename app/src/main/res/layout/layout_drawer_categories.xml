@@ -3,8 +3,9 @@
     android:id="@+id/categories_recycler_view"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingHorizontal="12dp"
-    android:paddingVertical="8dp"
+    android:paddingHorizontal="10dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="10dp"
     android:clipToPadding="false"
     android:nestedScrollingEnabled="false"
     android:overScrollMode="never" />

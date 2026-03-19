@@ -19,6 +19,13 @@
     <color name="onSurfaceVariant">#49454F</color>
     <color name="outline">#79747E</color>
 
+    <!-- Navigation drawer tones -->
+    <color name="navDrawerBackground">#FFFCFF</color>
+    <color name="navHeaderStart">#3B2E7A</color>
+    <color name="navHeaderEnd">#7C3AED</color>
+    <color name="navHeaderOn">#FFFFFF</color>
+    <color name="navFooterDivider">#1A1C1B1F</color>
+
     <color name="white">#FFFFFF</color>
     <color name="orange_fire">#FF4500</color>
 

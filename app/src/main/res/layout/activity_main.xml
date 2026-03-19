@@ -16,59 +16,63 @@
 
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/nav_view"
-        android:layout_width="wrap_content"
+        android:layout_width="@dimen/nav_drawer_width"
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:fitsSystemWindows="true"
         app:headerLayout="@layout/nav_header_main"
         app:menu="@menu/activity_main_drawer"
+        app:itemTextAppearance="@style/TextAppearance.App.NavItem"
         app:itemShapeFillColor="@color/nav_item_background"
-        app:itemShapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
-        app:itemVerticalPadding="4dp"
-        app:itemIconPadding="16dp"
-        app:itemHorizontalPadding="16dp"
-        app:itemShapeInsetStart="12dp"
-        app:itemShapeInsetEnd="12dp"
+        app:itemShapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium"
+        app:itemVerticalPadding="@dimen/nav_item_vertical_padding"
+        app:itemIconPadding="@dimen/nav_item_icon_padding"
+        app:itemHorizontalPadding="@dimen/nav_item_horizontal_padding"
+        app:itemShapeInsetStart="@dimen/nav_item_shape_inset"
+        app:itemShapeInsetEnd="@dimen/nav_item_shape_inset"
         app:itemIconTint="@color/nav_item_icon_tint"
         app:itemTextColor="@color/nav_item_text_color"
-        app:subheaderInsetStart="16dp"
-        app:subheaderTextAppearance="@style/TextAppearance.Material3.LabelMedium"
-        android:background="?attr/colorSurface">
+        app:subheaderInsetStart="20dp"
+        app:subheaderTextAppearance="@style/TextAppearance.App.NavSection"
+        android:background="@color/navDrawerBackground">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:paddingHorizontal="24dp"
-            android:paddingVertical="16dp">
+            android:paddingStart="@dimen/nav_footer_side_padding"
+            android:paddingTop="10dp"
+            android:paddingEnd="@dimen/nav_footer_side_padding"
+            android:paddingBottom="18dp">
 
             <View
                 android:id="@+id/divider"
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:alpha="0.05"
-                android:background="?attr/colorOnSurface"
+                android:background="@color/navFooterDivider"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
                 android:id="@+id/version_tv"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:alpha="0.4"
+                android:layout_marginTop="10dp"
+                android:alpha="0.7"
                 android:text="@string/app_version"
                 android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
+                android:textColor="@color/onSurfaceVariant"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/divider" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:alpha="0.4"
+                android:alpha="0.72"
                 android:text="@string/user_name"
                 android:textAllCaps="true"
                 android:letterSpacing="0.05"
                 android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
+                android:textColor="@color/onSurfaceVariant"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="@id/version_tv" />
 

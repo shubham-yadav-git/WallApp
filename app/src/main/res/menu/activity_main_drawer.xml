@@ -4,16 +4,20 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:showIn="navigation_view">
 
-    <group android:checkableBehavior="single">
-        <item
-            android:id="@+id/nav_home"
-            android:icon="@drawable/ic_fire_24dp"
-            android:title="Trending" />
-    </group>
+    <item android:title="@string/nav_section_discover">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item
+                    android:id="@+id/nav_home"
+                    android:icon="@drawable/ic_fire_24dp"
+                    android:title="@string/nav_trending" />
+            </group>
+        </menu>
+    </item>
 
     <item
         android:id="@+id/nav_categories_section"
-        android:title="Categories">
+        android:title="@string/nav_section_categories">
         <menu>
             <item
                 android:id="@+id/nav_categories_container"
@@ -23,30 +27,29 @@
         </menu>
     </item>
 
-    <item android:title="Support &amp; Community">
+    <item android:title="@string/nav_section_support">
         <menu>
             <item
                 android:id="@+id/nav_contact"
                 android:icon="@drawable/ic_contact_mail"
-                android:title="Send Feedback"
-                />
+                android:title="@string/nav_send_feedback" />
             <item
                 android:id="@+id/nav_rate_us"
                 android:icon="@drawable/ic_rate_review_24dp"
-                android:title="Rate App" />
+                android:title="@string/nav_rate_app" />
             <item
                 android:id="@+id/nav_share"
                 android:icon="@drawable/ic_share_blue_24dp"
-                android:title="Share with Friends" />
+                android:title="@string/nav_share_friends" />
         </menu>
     </item>
 
-    <item android:title="Legal">
+    <item android:title="@string/nav_section_legal">
         <menu>
             <item
                 android:id="@+id/nav_privacy"
                 android:icon="@drawable/ic_exit_to_app_black_24dp"
-                android:title="Privacy Policy" />
+                android:title="@string/nav_privacy_policy" />
         </menu>
     </item>
 

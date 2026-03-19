@@ -58,4 +58,16 @@
 
     <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.Material3" />
 
+    <style name="TextAppearance.App.NavItem" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.01</item>
+    </style>
+
+    <style name="TextAppearance.App.NavSection" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:textStyle">bold</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textColor">@color/onSurfaceVariant</item>
+    </style>
+
 </resources>
