@@ -99,6 +99,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
                 holder.textView.text = model.title
                 Glide.with(applicationContext).load(model.image).into(holder.imageView)
+                bindFavoriteUi(holder, model, "category")
 
                 holder.itemView.setOnClickListener {
                     analyticsTracker.logEvent(
@@ -268,6 +269,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     Glide.with(this@MainActivity)
                         .load(model.image)
                         .into(holder.imageView)
+                    bindFavoriteUi(
+                        holder,
+                        model,
+                        if (isFavoritesMode) "favorites" else "trending"
+                    )
 
                     holder.itemView.setOnClickListener {
                         analyticsTracker.logEvent(
@@ -327,6 +333,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
                 holder.textView.text = model.title
                 Glide.with(applicationContext).load(model.image).into(holder.imageView)
+                bindFavoriteUi(holder, model, "search_category")
 
                 holder.itemView.setOnClickListener {
                     analyticsTracker.logEvent(
@@ -441,6 +448,35 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private fun showCategorySelectedState() {
         binding.navView.menu.findItem(R.id.nav_home).isChecked = false
         binding.navView.menu.findItem(R.id.nav_favorites).isChecked = false
+    }
+
+    private fun bindFavoriteUi(holder: ViewHolder, model: Model, source: String) {
+        val isFavorite = FavoritesStore.isFavorite(this, model.image)
+        holder.favoriteButton.setImageResource(
+            if (isFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
+        )
+
+        holder.favoriteButton.setOnClickListener {
+            val nowFavorite = FavoritesStore.toggleFavorite(this, model.title, model.image)
+            holder.favoriteButton.setImageResource(
+                if (nowFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
+            )
+
+            analyticsTracker.logEvent(
+                if (nowFavorite) "favorite_added" else "favorite_removed",
+                mapOf("title" to model.title, "source" to source)
+            )
+
+            Toast.makeText(
+                this,
+                if (nowFavorite) getString(R.string.favorite_added) else getString(R.string.favorite_removed),
+                Toast.LENGTH_SHORT
+            ).show()
+
+            if (isFavoritesMode && !nowFavorite) {
+                loadFavorites()
+            }
+        }
     }
 
     private fun showLoading() {

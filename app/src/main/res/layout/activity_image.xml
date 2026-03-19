@@ -45,15 +45,6 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_fav"
-                style="@style/Widget.Material3.Button.TextButton.Icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/favorite"
-                app:icon="@drawable/ic_favorite_border_24"
-                app:iconTint="@color/onSurfaceVariant"
-                android:textColor="@color/onSurfaceVariant" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_save"
