@@ -48,8 +48,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         setSupportActionBar(binding.appBarMain.toolbar)
 
-        // Enable disk persistence so cached wallpapers load on slow/no connection
-        FirebaseDatabase.getInstance().setPersistenceEnabled(true)
         firebaseDatabase = FirebaseDatabase.getInstance()
         analyticsTracker = AnalyticsTracker(FirebaseAnalytics.getInstance(this))
         analyticsTracker.logEvent("app_open")
