@@ -18,14 +18,9 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <!--
-            TODO: Replace the value below with your real AdMob App ID from the AdMob console.
-            Format: ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX
-            Using Google's test App ID for now — must be replaced before release.
-        -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-9842479759097106~1672800275" />
 
         <activity
             android:name="com.sky.wallapp.MainActivity"
