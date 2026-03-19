@@ -1,10 +1,12 @@
 package com.sky.wallapp
 
 import android.app.Application
+import android.util.Log
 import com.google.firebase.database.DatabaseException
 import com.google.firebase.database.FirebaseDatabase
+import androidx.work.Configuration
 
-class WallAppApplication : Application() {
+class WallAppApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
@@ -27,6 +29,11 @@ class WallAppApplication : Application() {
             firebasePersistenceConfigured = true
         }
     }
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setMinimumLoggingLevel(Log.INFO)
+            .build()
 
     companion object {
         @Volatile
