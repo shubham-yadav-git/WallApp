@@ -26,7 +26,7 @@
     <string name="nav_section_categories">Categories</string>
     <string name="nav_section_support">Support &amp; community</string>
     <string name="nav_section_legal">Legal</string>
-    <string name="nav_trending">Trending</string>
+    <string name="nav_trending">Trending now</string>
     <string name="nav_send_feedback">Send feedback</string>
     <string name="nav_rate_app">Rate app</string>
     <string name="nav_share_friends">Share with friends</string>

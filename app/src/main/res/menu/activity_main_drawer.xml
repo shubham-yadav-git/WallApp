@@ -9,7 +9,7 @@
             <group android:checkableBehavior="single">
                 <item
                     android:id="@+id/nav_home"
-                    android:icon="@drawable/ic_fire_24dp"
+                    android:icon="@drawable/ic_trending_24dp"
                     android:title="@string/nav_trending" />
             </group>
         </menu>
