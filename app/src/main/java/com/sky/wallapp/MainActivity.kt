@@ -179,36 +179,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                         if (categoriesProcessed == totalCategories) {
                             fullList.clear()
                             fullList.addAll(allPhotos)
-
-                            val finalList = allPhotos.shuffled()
-
-                            binding.appBarMain.contentMain.recyclerView.adapter =
-                                object : RecyclerView.Adapter<ViewHolder>() {
-
-                                    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-                                        val view = LayoutInflater.from(parent.context)
-                                            .inflate(R.layout.row, parent, false)
-                                        return ViewHolder(view)
-                                    }
-
-                                    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-                                        val model = finalList[position]
-
-                                        holder.textView.text = model.title
-                                        Glide.with(this@MainActivity)
-                                            .load(model.image)
-                                            .into(holder.imageView)
-
-                                        holder.itemView.setOnClickListener {
-                                            val intent = Intent(this@MainActivity, ImageActivity::class.java)
-                                            intent.putExtra("image", model.image)
-                                            intent.putExtra("title", model.title)
-                                            startActivity(intent)
-                                        }
-                                    }
-
-                                    override fun getItemCount(): Int = finalList.size
-                                }
+                            bindStaticList(allPhotos.shuffled())
                         }
                     }
 
@@ -219,13 +190,57 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
     }
 
+    private fun bindStaticList(items: List<Model>) {
+        binding.appBarMain.contentMain.recyclerView.adapter =
+            object : RecyclerView.Adapter<ViewHolder>() {
+
+                override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+                    val view = LayoutInflater.from(parent.context)
+                        .inflate(R.layout.row, parent, false)
+                    return ViewHolder(view)
+                }
+
+                override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+                    val model = items[position]
+
+                    holder.textView.text = model.title
+                    Glide.with(this@MainActivity)
+                        .load(model.image)
+                        .into(holder.imageView)
+
+                    holder.itemView.setOnClickListener {
+                        val intent = Intent(this@MainActivity, ImageActivity::class.java)
+                        intent.putExtra("image", model.image)
+                        intent.putExtra("title", model.title)
+                        startActivity(intent)
+                    }
+                }
+
+                override fun getItemCount(): Int = items.size
+            }
+    }
+
     private fun localSearch(searchText: String) {
+        if (isTrendingMode) {
+            val query = searchText.trim()
+            if (query.isEmpty()) {
+                bindStaticList(fullList.shuffled())
+            } else {
+                val filtered = fullList.filter {
+                    it.title?.contains(query, ignoreCase = true) == true
+                }
+                bindStaticList(filtered)
+            }
+            return
+        }
+
+        val ref = mRef ?: return
         val firebaseSearchQuery = mRef?.orderByChild("title")
             ?.startAt(searchText)
             ?.endAt(searchText + "\uf8ff")
 
         val options = FirebaseRecyclerOptions.Builder<Model>()
-            .setQuery(firebaseSearchQuery!!, Model::class.java)
+            .setQuery(firebaseSearchQuery ?: ref, Model::class.java)
             .build()
 
         adapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
@@ -270,13 +285,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == R.id.categories) {
-            binding.drawerLayout.openDrawer(GravityCompat.START)
-            return true
-        }
-        return super.onOptionsItemSelected(item)
-    }
 
     override fun onNavigationItemSelected(menuItem: MenuItem): Boolean {
         when (menuItem.itemId) {

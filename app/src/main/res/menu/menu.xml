@@ -7,10 +7,4 @@
         android:icon="@drawable/ic_action_seacrh"
         app:showAsAction="collapseActionView|ifRoom"
         app:actionViewClass="androidx.appcompat.widget.SearchView"/>
-
-    <item
-        android:id="@+id/categories"
-        android:icon="@drawable/ic_action_category_white"
-        app:showAsAction="ifRoom"
-        android:title="Categories"/>
 </menu>
