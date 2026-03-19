@@ -21,9 +21,14 @@
 
     <!-- Navigation drawer tones -->
     <color name="navDrawerBackground">#1F1D24</color>
-    <color name="navHeaderStart">#7C63C7</color>
-    <color name="navHeaderEnd">#4F378B</color>
+    <color name="navHeaderStart">#5E46A7</color>
+    <color name="navHeaderEnd">#3E2B70</color>
     <color name="navHeaderOn">#FFFFFF</color>
+    <color name="navHeaderSub">#E9E0FF</color>
+    <color name="navHeaderScrimStart">#4D000000</color>
+    <color name="navHeaderScrimEnd">#22000000</color>
+    <color name="navHeaderLogoBg">#2BFFFFFF</color>
+    <color name="navHeaderLogoStroke">#8FFFFFFF</color>
     <color name="navFooterDivider">#26E6E1E5</color>
 
     <!-- Dark Mode Splash Background -->
