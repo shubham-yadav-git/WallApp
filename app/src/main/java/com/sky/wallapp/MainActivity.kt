@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private val categoriesList = mutableListOf<Category>()
     private var categoryAdapter: CategoryAdapter? = null
     private var isTrendingMode = true
+    private var isFavoritesMode = false
     private var fullList = mutableListOf<Model>()
     private lateinit var analyticsTracker: AnalyticsTracker
 
@@ -151,6 +152,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                         layoutManager = GridLayoutManager(this@MainActivity, 2)
                         categoryAdapter = CategoryAdapter(categoriesList, firebaseDatabase!!) { selectedCategory ->
                             isTrendingMode = false
+                            isFavoritesMode = false
 
                             this@MainActivity.adapter?.stopListening()
 
@@ -180,6 +182,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private fun loadTrending() {
         isTrendingMode = true
+        isFavoritesMode = false
         supportActionBar?.title = "Trending"
         showTrendingSelectedState()
         showLoading()
@@ -232,6 +235,23 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
     }
 
+    private fun loadFavorites() {
+        isTrendingMode = false
+        isFavoritesMode = true
+        supportActionBar?.title = getString(R.string.nav_favorites)
+
+        adapter?.stopListening()
+        adapter = null
+
+        val favorites = FavoritesStore.getFavorites(this)
+        fullList.clear()
+        fullList.addAll(favorites)
+        bindStaticList(favorites)
+        binding.navView.setCheckedItem(R.id.nav_favorites)
+
+        analyticsTracker.logEvent("open_favorites", mapOf("item_count" to favorites.size.toString()))
+    }
+
     private fun bindStaticList(items: List<Model>) {
         updateListState(items.size)
         binding.appBarMain.contentMain.recyclerView.adapter =
@@ -270,9 +290,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private fun localSearch(searchText: String) {
         val query = searchText.trim()
 
-        if (isTrendingMode) {
+        if (isTrendingMode || isFavoritesMode) {
             if (query.isEmpty()) {
-                bindStaticList(fullList.shuffled())
+                bindStaticList(if (isTrendingMode) fullList.shuffled() else fullList)
             } else {
                 val filtered = fullList.filter {
                     it.title?.contains(query, ignoreCase = true) == true
@@ -367,6 +387,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         when (menuItem.itemId) {
             R.id.nav_home -> loadTrending()
 
+            R.id.nav_favorites -> loadFavorites()
+
             R.id.nav_contact -> {
                 analyticsTracker.logEvent("nav_contact")
                 val intent = Intent(Intent.ACTION_SEND)
@@ -413,12 +435,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val trendingItem = binding.navView.menu.findItem(R.id.nav_home)
         trendingItem.isCheckable = true
         trendingItem.isChecked = true
+        binding.navView.menu.findItem(R.id.nav_favorites).isChecked = false
         binding.navView.setCheckedItem(R.id.nav_home)
         categoryAdapter?.clearSelection()
     }
 
     private fun showCategorySelectedState() {
         binding.navView.menu.findItem(R.id.nav_home).isChecked = false
+        binding.navView.menu.findItem(R.id.nav_favorites).isChecked = false
     }
 
     private fun showLoading() {
@@ -440,7 +464,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             binding.appBarMain.contentMain.recyclerView.visibility = android.view.View.VISIBLE
             binding.appBarMain.contentMain.emptyStateText.visibility = android.view.View.GONE
         } else {
-            showEmpty(getString(R.string.empty_wallpapers))
+            showEmpty(
+                if (isFavoritesMode) getString(R.string.empty_favorites)
+                else getString(R.string.empty_wallpapers)
+            )
         }
     }
 
@@ -449,6 +476,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     override fun onResume() {
         super.onResume()
         binding.appBarMain.contentMain.adView.resume()
+        if (isFavoritesMode) {
+            loadFavorites()
+        }
     }
 
     override fun onPause() {

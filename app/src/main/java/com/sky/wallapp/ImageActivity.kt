@@ -33,6 +33,7 @@ class ImageActivity : AppCompatActivity() {
     private lateinit var binding: ActivityImageBinding
     private var titlev: String? = null
     private var imageUrl: String? = null
+    private var isFavorite = false
     private lateinit var analyticsTracker: AnalyticsTracker
     private lateinit var reviewManager: ReviewManager
 
@@ -61,6 +62,8 @@ class ImageActivity : AppCompatActivity() {
         titlev = intent.getStringExtra("title")
         imageUrl = intent.getStringExtra("image")
         analyticsTracker.logEvent("wallpaper_detail_open", mapOf("title" to titlev))
+        isFavorite = FavoritesStore.isFavorite(this, imageUrl)
+        updateFavoriteUi()
 
         Glide.with(this)
             .load(imageUrl)
@@ -79,6 +82,23 @@ class ImageActivity : AppCompatActivity() {
             } else {
                 saveImage()
             }
+        }
+
+        binding.btnFav.setOnClickListener {
+            val newState = FavoritesStore.toggleFavorite(this, titlev, imageUrl)
+            isFavorite = newState
+            updateFavoriteUi()
+
+            analyticsTracker.logEvent(
+                if (newState) "favorite_added" else "favorite_removed",
+                mapOf("title" to titlev)
+            )
+
+            Toast.makeText(
+                this,
+                if (newState) getString(R.string.favorite_added) else getString(R.string.favorite_removed),
+                Toast.LENGTH_SHORT
+            ).show()
         }
 
         binding.btnShare.setOnClickListener {
@@ -226,6 +246,13 @@ class ImageActivity : AppCompatActivity() {
             analyticsTracker.logEvent("save_wallpaper_failed", mapOf("error" to e.message))
             Toast.makeText(this, "Error saving: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun updateFavoriteUi() {
+        binding.btnFav.setIconResource(
+            if (isFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
+        )
+        binding.btnFav.text = getString(if (isFavorite) R.string.favorited else R.string.favorite)
     }
 
     private fun onPositiveAction(action: String) {

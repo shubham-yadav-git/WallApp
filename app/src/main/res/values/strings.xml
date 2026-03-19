@@ -14,6 +14,10 @@
     <string name="user_name">sky dev</string>
     <string name="latest_superheros_and_nature">Latest Superheroes and Nature</string>
     <string name="save">Save</string>
+    <string name="favorite">Favorite</string>
+    <string name="favorited">Favorited</string>
+    <string name="favorite_added">Added to favorites</string>
+    <string name="favorite_removed">Removed from favorites</string>
     <string name="share">Share</string>
     <string name="set_wallpaper">Set Wallpaper</string>
     <string name="premium_wallpapers">Premium Wallpapers</string>
@@ -22,12 +26,14 @@
     <string name="loading_wallpapers">Loading wallpapers...</string>
     <string name="empty_wallpapers">No wallpapers found.</string>
     <string name="empty_search_results">No wallpapers match your search.</string>
+    <string name="empty_favorites">No favorites yet. Tap Favorite on a wallpaper to save it.</string>
     <string name="nav_tagline">Curated daily backgrounds</string>
     <string name="nav_section_discover">Discover</string>
     <string name="nav_section_categories">Categories</string>
     <string name="nav_section_support">Support &amp; community</string>
     <string name="nav_section_legal">Legal</string>
     <string name="nav_trending">Trending now</string>
+    <string name="nav_favorites">Favorites</string>
     <string name="nav_send_feedback">Send feedback</string>
     <string name="nav_rate_app">Rate app</string>
     <string name="nav_share_friends">Share with friends</string>
