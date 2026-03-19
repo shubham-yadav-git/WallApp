@@ -132,8 +132,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                             supportActionBar?.title = selectedCategory.name
                             binding.drawerLayout.closeDrawer(GravityCompat.START)
 
-                            binding.navView.menu.findItem(R.id.nav_home).isChecked = false
-                            binding.navView.setCheckedItem(R.id.nav_categories_section)
+                            showCategorySelectedState()
                         }
                         adapter = categoryAdapter
                     }
@@ -148,7 +147,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private fun loadTrending() {
         isTrendingMode = true
         supportActionBar?.title = "Trending"
-        binding.navView.setCheckedItem(R.id.nav_home)
+        showTrendingSelectedState()
 
         adapter?.stopListening()
         adapter = null
@@ -327,5 +326,17 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             .setPositiveButton("Yes") { _, _ -> finish() }
             .setNegativeButton("No", null)
             .show()
+    }
+
+    private fun showTrendingSelectedState() {
+        val trendingItem = binding.navView.menu.findItem(R.id.nav_home)
+        trendingItem.isCheckable = true
+        trendingItem.isChecked = true
+        binding.navView.setCheckedItem(R.id.nav_home)
+        categoryAdapter?.clearSelection()
+    }
+
+    private fun showCategorySelectedState() {
+        binding.navView.menu.findItem(R.id.nav_home).isChecked = false
     }
 }
