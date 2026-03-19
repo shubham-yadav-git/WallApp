@@ -451,6 +451,15 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun bindFavoriteUi(holder: ViewHolder, model: Model, source: String) {
+        if (model.image.isNullOrBlank()) {
+            holder.favoriteButton.isEnabled = false
+            holder.favoriteButton.alpha = 0.5f
+            holder.favoriteButton.setImageResource(R.drawable.ic_favorite_border_24)
+            return
+        }
+
+        holder.favoriteButton.isEnabled = true
+        holder.favoriteButton.alpha = 1f
         val isFavorite = FavoritesStore.isFavorite(this, model.image)
         holder.favoriteButton.setImageResource(
             if (isFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
