@@ -18,6 +18,15 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!--
+            TODO: Replace the value below with your real AdMob App ID from the AdMob console.
+            Format: ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX
+            Using Google's test App ID for now — must be replaced before release.
+        -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
+
         <activity
             android:name="com.sky.wallapp.MainActivity"
             android:exported="true"
@@ -38,6 +47,16 @@
             android:name="com.sky.wallapp.PrivacyPolicyActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

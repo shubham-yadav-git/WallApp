@@ -22,6 +22,8 @@ import com.firebase.ui.database.FirebaseRecyclerOptions
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationView
 import com.google.firebase.database.*
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.MobileAds
 import com.sky.wallapp.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -43,7 +45,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         setSupportActionBar(binding.appBarMain.toolbar)
 
+        // Enable disk persistence so cached wallpapers load on slow/no connection
+        FirebaseDatabase.getInstance().setPersistenceEnabled(true)
         firebaseDatabase = FirebaseDatabase.getInstance()
+
+        // Initialise AdMob and load the banner ad
+        MobileAds.initialize(this) {}
+        val adRequest = AdRequest.Builder().build()
+        binding.appBarMain.contentMain.adView.loadAd(adRequest)
 
         val toggle = ActionBarDrawerToggle(
             this, binding.drawerLayout, binding.appBarMain.toolbar,
@@ -338,5 +347,22 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private fun showCategorySelectedState() {
         binding.navView.menu.findItem(R.id.nav_home).isChecked = false
+    }
+
+    // ── AdView lifecycle ────────────────────────────────────────────────────────
+
+    override fun onResume() {
+        super.onResume()
+        binding.appBarMain.contentMain.adView.resume()
+    }
+
+    override fun onPause() {
+        binding.appBarMain.contentMain.adView.pause()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        binding.appBarMain.contentMain.adView.destroy()
+        super.onDestroy()
     }
 }

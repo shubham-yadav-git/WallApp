@@ -11,7 +11,7 @@
         android:id="@+id/image_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:contentDescription="@string/todo"
+        android:contentDescription="@string/wallpaper_image_desc"
         android:scaleType="centerCrop" />
 
     <com.google.android.material.appbar.AppBarLayout

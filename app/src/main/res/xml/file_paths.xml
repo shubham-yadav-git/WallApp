@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Cache dir used when sharing wallpaper images -->
+    <cache-path name="shared_images" path="shared_images/" />
+    <!-- External Pictures/WallApp/ used when saving wallpapers -->
+    <external-path name="wallapp_saved" path="Pictures/WallApp/" />
+</paths>
+

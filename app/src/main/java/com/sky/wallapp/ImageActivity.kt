@@ -6,15 +6,17 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
+import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.os.StrictMode
 import android.view.animation.AnimationUtils
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.bumptech.glide.Glide
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.sky.wallapp.databinding.ActivityImageBinding
@@ -37,8 +39,6 @@ class ImageActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityImageBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        
-        initPhotoError()
 
         setSupportActionBar(binding.toolbar)
         supportActionBar?.apply {
@@ -83,7 +83,7 @@ class ImageActivity : AppCompatActivity() {
             Toast.makeText(this, "Image not loaded yet", Toast.LENGTH_SHORT).show()
             return
         }
-        
+
         val mBitmap = mDrawable.bitmap
         val wallpaperManager = WallpaperManager.getInstance(applicationContext)
 
@@ -95,11 +95,19 @@ class ImageActivity : AppCompatActivity() {
                 try {
                     when (i) {
                         0 -> {
-                            wallpaperManager.setBitmap(mBitmap, null, true, WallpaperManager.FLAG_SYSTEM)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                wallpaperManager.setBitmap(mBitmap, null, true, WallpaperManager.FLAG_SYSTEM)
+                            } else {
+                                wallpaperManager.setBitmap(mBitmap)
+                            }
                             Toast.makeText(this, "Home Screen set successfully", Toast.LENGTH_SHORT).show()
                         }
                         1 -> {
-                            wallpaperManager.setBitmap(mBitmap, null, true, WallpaperManager.FLAG_LOCK)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                wallpaperManager.setBitmap(mBitmap, null, true, WallpaperManager.FLAG_LOCK)
+                            } else {
+                                wallpaperManager.setBitmap(mBitmap)
+                            }
                             Toast.makeText(this, "Lock Screen set successfully", Toast.LENGTH_SHORT).show()
                         }
                         else -> {
@@ -114,51 +122,84 @@ class ImageActivity : AppCompatActivity() {
             .show()
     }
 
+    /**
+     * Shares the wallpaper as an actual image (not just a URL) using FileProvider.
+     * Falls back to sharing the URL if the bitmap is not yet loaded.
+     */
     private fun shareImage() {
-        try {
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                putExtra(Intent.EXTRA_SUBJECT, titlev)
-                putExtra(Intent.EXTRA_TEXT, "Check out this wallpaper: $imageUrl")
+        val drawable = binding.imageView.drawable
+        if (drawable !is BitmapDrawable) {
+            // Fallback: share URL as plain text
+            val fallback = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, imageUrl)
             }
-            startActivity(Intent.createChooser(intent, "Share via"))
+            startActivity(Intent.createChooser(fallback, "Share via"))
+            return
+        }
+
+        try {
+            val bitmap = drawable.bitmap
+
+            // Write bitmap to app cache so FileProvider can serve it
+            val cacheDir = File(cacheDir, "shared_images").also { it.mkdirs() }
+            val shareFile = File(cacheDir, "wallpaper.jpg")
+            FileOutputStream(shareFile).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
+            }
+
+            val contentUri: Uri = FileProvider.getUriForFile(
+                this,
+                "${packageName}.fileprovider",
+                shareFile
+            )
+
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/jpeg"
+                putExtra(Intent.EXTRA_STREAM, contentUri)
+                putExtra(Intent.EXTRA_SUBJECT, titlev)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(intent, "Share wallpaper"))
         } catch (e: Exception) {
             Toast.makeText(this, "Unable to share: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun initPhotoError() {
-        val builder = StrictMode.VmPolicy.Builder()
-        StrictMode.setVmPolicy(builder.build())
-        builder.detectFileUriExposure()
-    }
-
     private fun saveImage() {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(System.currentTimeMillis())
-        
+
         val mDrawable = binding.imageView.drawable
         if (mDrawable !is BitmapDrawable) {
             Toast.makeText(this, "Image not loaded yet", Toast.LENGTH_SHORT).show()
             return
         }
         val bitmap = mDrawable.bitmap
-        
+
         val path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
         val dir = File(path, "WallApp")
         if (!dir.exists()) {
             dir.mkdirs()
         }
-        
+
         val fileName = "${titlev?.replace(" ", "_")}_$timeStamp.jpg"
         val file = File(dir, fileName)
 
         try {
-            val fileOutputStream = FileOutputStream(file)
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
-            fileOutputStream.flush()
-            fileOutputStream.close()
-            Toast.makeText(this, "Saved to $dir", Toast.LENGTH_LONG).show()
+            FileOutputStream(file).use { fos ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
+                fos.flush()
+            }
+
+            // Notify the media scanner so the image appears in the gallery immediately
+            MediaScannerConnection.scanFile(
+                this,
+                arrayOf(file.absolutePath),
+                arrayOf("image/jpeg"),
+                null
+            )
+
+            Toast.makeText(this, "Saved to Gallery / WallApp", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Error saving: ${e.message}", Toast.LENGTH_SHORT).show()
         }

@@ -15,7 +15,7 @@
         android:layout_height="150dp"
         android:layout_gravity="center"
         android:layout_marginTop="250dp"
-        android:contentDescription="@string/todo"
+        android:contentDescription="@string/wallpaper_image_desc"
         android:src="@drawable/wp_logo_512dp"
         app:tint="@color/white" />
 
