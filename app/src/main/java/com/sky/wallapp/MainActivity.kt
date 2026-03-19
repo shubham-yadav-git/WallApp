@@ -304,8 +304,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
 
             R.id.nav_privacy -> {
-                startActivity(Intent(Intent.ACTION_VIEW,
-                    Uri.parse("https://github.com/shubhamy-google/WallApp/blob/main/privacy_policy.md")))
+                startActivity(Intent(this, PrivacyPolicyActivity::class.java))
             }
         }
 

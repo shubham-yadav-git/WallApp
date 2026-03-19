@@ -31,4 +31,22 @@
     <string name="nav_rate_app">Rate app</string>
     <string name="nav_share_friends">Share with friends</string>
     <string name="nav_privacy_policy">Privacy policy</string>
+
+    <string name="privacy_policy_title">Privacy Policy</string>
+    <string name="privacy_policy_last_updated">Last updated: March 19, 2026</string>
+    <string name="privacy_policy_intro">WallApp provides wallpaper browsing and download features. This policy explains what information is used when you use the app.</string>
+    <string name="privacy_policy_data_title">Information We Collect</string>
+    <string name="privacy_policy_data_body">We do not require account sign-in and we do not intentionally collect personal profile information like your name or address. Wallpaper data (titles, image URLs, categories) is loaded from our backend to show content in the app. Third-party services used by the app (such as ad and analytics providers) may collect technical identifiers like device and advertising IDs according to their own policies.</string>
+    <string name="privacy_policy_permissions_title">Permissions We Use</string>
+    <string name="privacy_policy_permissions_body">- INTERNET: Used to load wallpapers and category data from online sources.\n- WRITE_EXTERNAL_STORAGE (older Android versions): Used to save wallpapers to your device gallery when you choose Save.\n- SET_WALLPAPER: Used only when you choose Set Wallpaper from the app.\n- AD_ID: Used by Google Ad services to provide ads and ad measurement.</string>
+    <string name="privacy_policy_sharing_title">How We Use Information</string>
+    <string name="privacy_policy_sharing_body">We use app data to show wallpapers, enable search and category browsing, save/share wallpapers, and improve app stability. We do not sell your personal data. We may rely on trusted services such as Firebase and Google services to deliver app functionality.</string>
+    <string name="privacy_policy_security_title">Data Security</string>
+    <string name="privacy_policy_security_body">We use standard platform and service protections to reduce unauthorized access risk. No online system is fully secure, but we continuously review app behavior and dependencies for safety improvements.</string>
+    <string name="privacy_policy_children_title">Children Privacy</string>
+    <string name="privacy_policy_children_body">WallApp is not directed to children under 13. If you believe a child has provided personal information, please contact us so we can review and remove data if needed.</string>
+    <string name="privacy_policy_updates_title">Policy Updates</string>
+    <string name="privacy_policy_updates_body">We may update this Privacy Policy from time to time. Material updates will be reflected on this screen with a revised last updated date.</string>
+    <string name="privacy_policy_contact_title">Contact Us</string>
+    <string name="privacy_policy_contact_body">If you have privacy questions, contact us at:\nshineupindia@gmail.com\nshubhamskyjnp@gmail.com</string>
 </resources>
