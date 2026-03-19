@@ -1,6 +1,7 @@
 package com.sky.wallapp
 
 import android.content.Context
+import androidx.core.content.edit
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -74,7 +75,9 @@ object FavoritesStore {
             obj.put("savedAt", item.savedAt)
             arr.put(obj)
         }
-        prefs(context).edit().putString(KEY_FAVORITES_JSON, arr.toString()).apply()
+        prefs(context).edit {
+            putString(KEY_FAVORITES_JSON, arr.toString())
+        }
     }
 
     private data class FavoriteEntry(

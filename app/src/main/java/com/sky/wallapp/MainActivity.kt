@@ -1,17 +1,21 @@
 package com.sky.wallapp
 
 import android.content.Intent
-import android.net.Uri
+import android.content.IntentSender
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.HapticFeedbackConstants
 import android.view.Menu
 import android.view.MenuItem
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
+import androidx.core.content.edit
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.GravityCompat
 import androidx.recyclerview.widget.GridLayoutManager
@@ -24,11 +28,22 @@ import com.google.android.material.navigation.NavigationView
 import com.google.firebase.database.*
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.MobileAds
+import com.google.android.play.core.appupdate.AppUpdateManager
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.InstallStatus
+import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.sky.wallapp.databinding.ActivityMainBinding
 import androidx.core.net.toUri
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
+
+    private enum class FavoritesSortMode {
+        RECENT,
+        ALPHABETICAL
+    }
 
     private lateinit var binding: ActivityMainBinding
     private var firebaseDatabase: FirebaseDatabase? = null
@@ -40,6 +55,17 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private var isFavoritesMode = false
     private var fullList = mutableListOf<Model>()
     private lateinit var analyticsTracker: AnalyticsTracker
+    private lateinit var appUpdateManager: AppUpdateManager
+    private var favoritesSortMode = FavoritesSortMode.RECENT
+    private val updateFlowLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result: ActivityResult ->
+        if (result.resultCode == RESULT_OK) {
+            analyticsTracker.logEvent("in_app_update_flow_accepted")
+        } else {
+            analyticsTracker.logEvent("in_app_update_flow_dismissed")
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -51,7 +77,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         firebaseDatabase = FirebaseDatabase.getInstance()
         analyticsTracker = AnalyticsTracker(FirebaseAnalytics.getInstance(this))
+        appUpdateManager = AppUpdateManagerFactory.create(this)
+        favoritesSortMode = readFavoritesSortMode()
         analyticsTracker.logEvent("app_open")
+        checkForAppUpdates()
 
         // Initialise AdMob and load the banner ad
         MobileAds.initialize(this) {}
@@ -160,6 +189,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                             firebaseDataLoad()
                             supportActionBar?.title = selectedCategory.name
                             binding.drawerLayout.closeDrawer(GravityCompat.START)
+                            invalidateOptionsMenu()
                             analyticsTracker.logEvent(
                                 "category_select",
                                 mapOf(
@@ -186,6 +216,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         supportActionBar?.title = "Trending"
         showTrendingSelectedState()
         showLoading()
+        invalidateOptionsMenu()
         analyticsTracker.logEvent("open_trending")
 
         adapter?.stopListening()
@@ -244,12 +275,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         adapter = null
 
         val favorites = FavoritesStore.getFavorites(this)
+        val sortedFavorites = sortFavorites(favorites)
         fullList.clear()
-        fullList.addAll(favorites)
-        bindStaticList(favorites)
+        fullList.addAll(sortedFavorites)
+        bindStaticList(sortedFavorites)
         binding.navView.setCheckedItem(R.id.nav_favorites)
+        invalidateOptionsMenu()
 
-        analyticsTracker.logEvent("open_favorites", mapOf("item_count" to favorites.size.toString()))
+        analyticsTracker.logEvent("open_favorites", mapOf("item_count" to sortedFavorites.size.toString()))
     }
 
     private fun bindStaticList(items: List<Model>) {
@@ -279,7 +312,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     holder.itemView.setOnClickListener {
                         analyticsTracker.logEvent(
                             "wallpaper_open",
-                            mapOf("source" to "trending", "title" to model.title)
+                            mapOf(
+                                "source" to if (isFavoritesMode) "favorites" else "trending",
+                                "title" to model.title
+                            )
                         )
                         val intent = Intent(this@MainActivity, ImageActivity::class.java)
                         intent.putExtra("image", model.image)
@@ -371,6 +407,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu, menu)
+        menu.findItem(R.id.action_sort_favorites).isVisible = isFavoritesMode
         val searchView = menu.findItem(R.id.action_search).actionView as SearchView
 
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
@@ -386,6 +423,21 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
         })
         return true
+    }
+
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        menu.findItem(R.id.action_sort_favorites)?.isVisible = isFavoritesMode
+        return super.onPrepareOptionsMenu(menu)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_sort_favorites -> {
+                showFavoritesSortDialog()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
 
@@ -468,9 +520,25 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         holder.favoriteButton.setOnClickListener {
             val nowFavorite = FavoritesStore.toggleFavorite(this, model.title, model.image)
+            holder.favoriteButton.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
             holder.favoriteButton.setImageResource(
                 if (nowFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
             )
+
+            // Micro animation for better touch feedback on heart toggle.
+            holder.favoriteButton.animate().cancel()
+            holder.favoriteButton.animate()
+                .scaleX(0.82f)
+                .scaleY(0.82f)
+                .setDuration(70)
+                .withEndAction {
+                    holder.favoriteButton.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(120)
+                        .start()
+                }
+                .start()
 
             analyticsTracker.logEvent(
                 if (nowFavorite) "favorite_added" else "favorite_removed",
@@ -486,6 +554,95 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             if (isFavoritesMode && !nowFavorite) {
                 loadFavorites()
             }
+        }
+    }
+
+    private fun sortFavorites(items: List<Model>): List<Model> {
+        return when (favoritesSortMode) {
+            FavoritesSortMode.RECENT -> items
+            FavoritesSortMode.ALPHABETICAL -> items.sortedBy { it.title?.lowercase() ?: "" }
+        }
+    }
+
+    private fun showFavoritesSortDialog() {
+        val options = arrayOf(
+            getString(R.string.sort_recent),
+            getString(R.string.sort_alphabetical)
+        )
+        val checked = if (favoritesSortMode == FavoritesSortMode.RECENT) 0 else 1
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.sort_favorites_title)
+            .setSingleChoiceItems(options, checked) { dialog, which ->
+                favoritesSortMode = if (which == 0) FavoritesSortMode.RECENT else FavoritesSortMode.ALPHABETICAL
+                saveFavoritesSortMode(favoritesSortMode)
+                analyticsTracker.logEvent(
+                    "favorites_sort_changed",
+                    mapOf("mode" to favoritesSortMode.name.lowercase())
+                )
+                loadFavorites()
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun readFavoritesSortMode(): FavoritesSortMode {
+        val raw = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .getString(KEY_FAVORITES_SORT_MODE, FavoritesSortMode.RECENT.name)
+        return runCatching { FavoritesSortMode.valueOf(raw ?: FavoritesSortMode.RECENT.name) }
+            .getOrDefault(FavoritesSortMode.RECENT)
+    }
+
+    private fun saveFavoritesSortMode(mode: FavoritesSortMode) {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit {
+            putString(KEY_FAVORITES_SORT_MODE, mode.name)
+        }
+    }
+
+    private fun checkForAppUpdates(force: Boolean = false) {
+        if (!force && !shouldCheckForUpdatesNow()) return
+
+        appUpdateManager.appUpdateInfo
+            .addOnSuccessListener { updateInfo ->
+                markUpdateCheckDone()
+
+                if (updateInfo.installStatus() == InstallStatus.DOWNLOADED) {
+                    appUpdateManager.completeUpdate()
+                    return@addOnSuccessListener
+                }
+
+                if (
+                    updateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
+                    updateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
+                ) {
+                    try {
+                        appUpdateManager.startUpdateFlowForResult(
+                            updateInfo,
+                            updateFlowLauncher,
+                            AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE).build()
+                        )
+                        analyticsTracker.logEvent("in_app_update_prompt_shown")
+                    } catch (_: IntentSender.SendIntentException) {
+                        // Ignore; no safe fallback required for optional update prompt.
+                    }
+                }
+            }
+            .addOnFailureListener {
+                if (force) {
+                    Toast.makeText(this, getString(R.string.update_check_failed), Toast.LENGTH_SHORT).show()
+                }
+            }
+    }
+
+    private fun shouldCheckForUpdatesNow(): Boolean {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val lastCheckedAt = prefs.getLong(KEY_LAST_UPDATE_CHECK_AT, 0L)
+        return System.currentTimeMillis() - lastCheckedAt >= UPDATE_CHECK_COOLDOWN_MS
+    }
+
+    private fun markUpdateCheckDone() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit {
+            putLong(KEY_LAST_UPDATE_CHECK_AT, System.currentTimeMillis())
         }
     }
 
@@ -520,6 +677,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     override fun onResume() {
         super.onResume()
         binding.appBarMain.contentMain.adView.resume()
+        appUpdateManager.appUpdateInfo.addOnSuccessListener { updateInfo ->
+            if (updateInfo.installStatus() == InstallStatus.DOWNLOADED) {
+                appUpdateManager.completeUpdate()
+            }
+        }
         if (isFavoritesMode) {
             loadFavorites()
         }
@@ -533,5 +695,12 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     override fun onDestroy() {
         binding.appBarMain.contentMain.adView.destroy()
         super.onDestroy()
+    }
+
+    companion object {
+        private const val PREFS_NAME = "wallapp_prefs"
+        private const val KEY_FAVORITES_SORT_MODE = "favorites_sort_mode"
+        private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
+        private const val UPDATE_CHECK_COOLDOWN_MS = 2L * 24 * 60 * 60 * 1000 // 2 days
     }
 }

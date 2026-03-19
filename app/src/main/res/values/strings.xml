@@ -5,6 +5,7 @@
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="nav_header_desc">Navigation header</string>
     <string name="action_settings">Settings</string>
+    <string name="search">Search</string>
     <string name="contact_email">shineupindia@gmail.com</string>
     <string name="contact">shineupindia@gmail.com\nshubhamskyjnp@gmail.com</string>
     <string name="banner_ad_unit_id">ca-app-pub-9842479759097106/2485386742</string>
@@ -19,6 +20,10 @@
     <string name="favorite_added">Added to favorites</string>
     <string name="favorite_removed">Removed from favorites</string>
     <string name="share">Share</string>
+    <string name="sort">Sort</string>
+    <string name="sort_favorites_title">Sort favorites</string>
+    <string name="sort_recent">Recent</string>
+    <string name="sort_alphabetical">A-Z</string>
     <string name="set_wallpaper">Set Wallpaper</string>
     <string name="premium_wallpapers">Premium Wallpapers</string>
     <string name="app_version">v1.2.0</string>
@@ -38,6 +43,7 @@
     <string name="nav_rate_app">Rate app</string>
     <string name="nav_share_friends">Share with friends</string>
     <string name="nav_privacy_policy">Privacy policy</string>
+    <string name="update_check_failed">Could not check for app updates.</string>
 
     <string name="privacy_policy_title">Privacy Policy</string>
     <string name="privacy_policy_last_updated">Last updated: March 19, 2026</string>
