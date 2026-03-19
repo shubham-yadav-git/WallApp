@@ -24,6 +24,7 @@ import com.google.android.material.navigation.NavigationView
 import com.google.firebase.database.*
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.MobileAds
+import com.google.firebase.analytics.FirebaseAnalytics
 import com.sky.wallapp.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -36,6 +37,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private var categoryAdapter: CategoryAdapter? = null
     private var isTrendingMode = true
     private var fullList = mutableListOf<Model>()
+    private lateinit var analyticsTracker: AnalyticsTracker
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -48,6 +50,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         // Enable disk persistence so cached wallpapers load on slow/no connection
         FirebaseDatabase.getInstance().setPersistenceEnabled(true)
         firebaseDatabase = FirebaseDatabase.getInstance()
+        analyticsTracker = AnalyticsTracker(FirebaseAnalytics.getInstance(this))
+        analyticsTracker.logEvent("app_open")
 
         // Initialise AdMob and load the banner ad
         MobileAds.initialize(this) {}
@@ -63,6 +67,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         binding.navView.setNavigationItemSelectedListener(this)
         binding.appBarMain.contentMain.recyclerView.layoutManager = GridLayoutManager(this, 2)
+        showLoading()
 
         loadCategoriesToDrawer()
 
@@ -79,6 +84,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private fun firebaseDataLoad() {
         val query: Query = mRef!!
+        showLoading()
 
         val options = FirebaseRecyclerOptions.Builder<Model>()
             .setQuery(query, Model::class.java)
@@ -96,11 +102,23 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 Glide.with(applicationContext).load(model.image).into(holder.imageView)
 
                 holder.itemView.setOnClickListener {
+                    analyticsTracker.logEvent(
+                        "wallpaper_open",
+                        mapOf("source" to "category", "title" to model.title)
+                    )
                     val intent = Intent(this@MainActivity, ImageActivity::class.java)
                     intent.putExtra("image", model.image)
                     intent.putExtra("title", model.title)
                     startActivity(intent)
                 }
+            }
+
+            override fun onDataChanged() {
+                updateListState(itemCount)
+            }
+
+            override fun onError(error: DatabaseError) {
+                showEmpty(getString(R.string.empty_wallpapers))
             }
         }
 
@@ -140,6 +158,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                             firebaseDataLoad()
                             supportActionBar?.title = selectedCategory.name
                             binding.drawerLayout.closeDrawer(GravityCompat.START)
+                            analyticsTracker.logEvent(
+                                "category_select",
+                                mapOf(
+                                    "category_name" to selectedCategory.name,
+                                    "category_path" to selectedCategory.path
+                                )
+                            )
 
                             showCategorySelectedState()
                         }
@@ -157,11 +182,16 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         isTrendingMode = true
         supportActionBar?.title = "Trending"
         showTrendingSelectedState()
+        showLoading()
+        analyticsTracker.logEvent("open_trending")
 
         adapter?.stopListening()
         adapter = null
 
-        if (categoriesList.isEmpty()) return
+        if (categoriesList.isEmpty()) {
+            showEmpty(getString(R.string.empty_wallpapers))
+            return
+        }
 
         val allPhotos = mutableListOf<Model>()
         var categoriesProcessed = 0
@@ -188,6 +218,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                             fullList.clear()
                             fullList.addAll(allPhotos)
                             bindStaticList(allPhotos.shuffled())
+                            analyticsTracker.logEvent(
+                                "trending_loaded",
+                                mapOf("item_count" to allPhotos.size.toString())
+                            )
                         }
                     }
 
@@ -199,6 +233,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun bindStaticList(items: List<Model>) {
+        updateListState(items.size)
         binding.appBarMain.contentMain.recyclerView.adapter =
             object : RecyclerView.Adapter<ViewHolder>() {
 
@@ -217,6 +252,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                         .into(holder.imageView)
 
                     holder.itemView.setOnClickListener {
+                        analyticsTracker.logEvent(
+                            "wallpaper_open",
+                            mapOf("source" to "trending", "title" to model.title)
+                        )
                         val intent = Intent(this@MainActivity, ImageActivity::class.java)
                         intent.putExtra("image", model.image)
                         intent.putExtra("title", model.title)
@@ -229,8 +268,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun localSearch(searchText: String) {
+        val query = searchText.trim()
+
         if (isTrendingMode) {
-            val query = searchText.trim()
             if (query.isEmpty()) {
                 bindStaticList(fullList.shuffled())
             } else {
@@ -238,6 +278,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     it.title?.contains(query, ignoreCase = true) == true
                 }
                 bindStaticList(filtered)
+                if (filtered.isEmpty()) {
+                    showEmpty(getString(R.string.empty_search_results))
+                }
+                analyticsTracker.logEvent(
+                    "search_trending",
+                    mapOf("query" to query, "result_count" to filtered.size.toString())
+                )
             }
             return
         }
@@ -250,6 +297,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val options = FirebaseRecyclerOptions.Builder<Model>()
             .setQuery(firebaseSearchQuery ?: ref, Model::class.java)
             .build()
+        showLoading()
 
         adapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -263,11 +311,31 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 Glide.with(applicationContext).load(model.image).into(holder.imageView)
 
                 holder.itemView.setOnClickListener {
+                    analyticsTracker.logEvent(
+                        "wallpaper_open",
+                        mapOf("source" to "search_category", "title" to model.title)
+                    )
                     val intent = Intent(this@MainActivity, ImageActivity::class.java)
                     intent.putExtra("image", model.image)
                     intent.putExtra("title", model.title)
                     startActivity(intent)
                 }
+            }
+
+            override fun onDataChanged() {
+                if (itemCount == 0 && query.isNotEmpty()) {
+                    showEmpty(getString(R.string.empty_search_results))
+                } else {
+                    updateListState(itemCount)
+                }
+                analyticsTracker.logEvent(
+                    "search_category",
+                    mapOf("query" to query, "result_count" to itemCount.toString())
+                )
+            }
+
+            override fun onError(error: DatabaseError) {
+                showEmpty(getString(R.string.empty_wallpapers))
             }
         }
 
@@ -282,6 +350,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(s: String): Boolean {
                 localSearch(s)
+                analyticsTracker.logEvent("search_submit", mapOf("query" to s.trim()))
                 return false
             }
 
@@ -299,6 +368,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             R.id.nav_home -> loadTrending()
 
             R.id.nav_contact -> {
+                analyticsTracker.logEvent("nav_contact")
                 val intent = Intent(Intent.ACTION_SEND)
                 intent.putExtra(Intent.EXTRA_EMAIL, arrayOf("shubhamskyjnp@gmail.com"))
                 intent.putExtra(Intent.EXTRA_SUBJECT, "Feedback for WallApp")
@@ -307,6 +377,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
 
             R.id.nav_share -> {
+                analyticsTracker.logEvent("nav_share_app")
                 val intent = Intent(Intent.ACTION_SEND)
                 intent.type = "text/plain"
                 intent.putExtra(Intent.EXTRA_TEXT,
@@ -315,6 +386,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
 
             R.id.nav_rate_us -> {
+                analyticsTracker.logEvent("nav_rate_app")
                 startActivity(Intent(Intent.ACTION_VIEW,
                     Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
             }
@@ -347,6 +419,29 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private fun showCategorySelectedState() {
         binding.navView.menu.findItem(R.id.nav_home).isChecked = false
+    }
+
+    private fun showLoading() {
+        binding.appBarMain.contentMain.loadingProgress.visibility = android.view.View.VISIBLE
+        binding.appBarMain.contentMain.emptyStateText.visibility = android.view.View.GONE
+        binding.appBarMain.contentMain.recyclerView.visibility = android.view.View.GONE
+    }
+
+    private fun showEmpty(message: String) {
+        binding.appBarMain.contentMain.loadingProgress.visibility = android.view.View.GONE
+        binding.appBarMain.contentMain.recyclerView.visibility = android.view.View.GONE
+        binding.appBarMain.contentMain.emptyStateText.text = message
+        binding.appBarMain.contentMain.emptyStateText.visibility = android.view.View.VISIBLE
+    }
+
+    private fun updateListState(itemCount: Int) {
+        binding.appBarMain.contentMain.loadingProgress.visibility = android.view.View.GONE
+        if (itemCount > 0) {
+            binding.appBarMain.contentMain.recyclerView.visibility = android.view.View.VISIBLE
+            binding.appBarMain.contentMain.emptyStateText.visibility = android.view.View.GONE
+        } else {
+            showEmpty(getString(R.string.empty_wallpapers))
+        }
     }
 
     // ── AdView lifecycle ────────────────────────────────────────────────────────

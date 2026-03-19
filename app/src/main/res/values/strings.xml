@@ -19,6 +19,9 @@
     <string name="premium_wallpapers">Premium Wallpapers</string>
     <string name="app_version">v1.2.0</string>
     <string name="wallpaper_image_desc">Wallpaper image</string>
+    <string name="loading_wallpapers">Loading wallpapers...</string>
+    <string name="empty_wallpapers">No wallpapers found.</string>
+    <string name="empty_search_results">No wallpapers match your search.</string>
     <string name="nav_tagline">Curated daily backgrounds</string>
     <string name="nav_section_discover">Discover</string>
     <string name="nav_section_categories">Categories</string>
