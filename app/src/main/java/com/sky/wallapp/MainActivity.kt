@@ -26,6 +26,7 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.MobileAds
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.sky.wallapp.databinding.ActivityMainBinding
+import androidx.core.net.toUri
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
@@ -415,7 +416,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             R.id.nav_rate_us -> {
                 analyticsTracker.logEvent("nav_rate_app")
                 startActivity(Intent(Intent.ACTION_VIEW,
-                    Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
+                    "https://play.google.com/store/apps/details?id=$packageName".toUri()))
             }
 
             R.id.nav_privacy -> {

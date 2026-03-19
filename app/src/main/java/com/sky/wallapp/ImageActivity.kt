@@ -27,6 +27,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Locale
+import androidx.core.content.edit
 
 class ImageActivity : AppCompatActivity() {
 
@@ -253,7 +254,7 @@ class ImageActivity : AppCompatActivity() {
                 val reviewInfo = task.result
                 reviewManager.launchReviewFlow(this, reviewInfo)
                     .addOnCompleteListener {
-                        prefs.edit().putLong(KEY_LAST_REVIEW_REQUEST_TIME, now).apply()
+                        prefs.edit { putLong(KEY_LAST_REVIEW_REQUEST_TIME, now) }
                         analyticsTracker.logEvent("in_app_review_requested")
                     }
             }
