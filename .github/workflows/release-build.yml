@@ -1,10 +1,7 @@
 name: Release Build
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'  # Triggers on version tags like v1.2.0, v1.3.0, etc.
-  workflow_dispatch:  # Allows manual triggering from GitHub Actions tab
+  workflow_dispatch:  # Manual only to keep master push flow simple
 
 jobs:
   release:
