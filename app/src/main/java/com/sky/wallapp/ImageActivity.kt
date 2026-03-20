@@ -69,6 +69,7 @@ class ImageActivity : AppCompatActivity() {
         const val WRITE_EXTERNAL_STORAGE_CODE = 1
         const val EXTRA_SWIPE_SESSION_ID = "swipe_session_id"
         const val EXTRA_SWIPE_INDEX = "swipe_index"
+        const val EXTRA_FAVORITES_CHANGED = "favorites_changed"
 
         private const val STATE_CURRENT_INDEX = "state_current_index"
         private const val STATE_TITLE = "state_title"
@@ -193,6 +194,10 @@ class ImageActivity : AppCompatActivity() {
 
     private fun toggleFavoriteFromDoubleTap() {
         val nowFavorite = FavoritesStore.toggleFavorite(this, titlev, imageUrl)
+        setResult(
+            RESULT_OK,
+            Intent().putExtra(EXTRA_FAVORITES_CHANGED, true)
+        )
         performActionHaptic()
         analyticsTracker.logEvent(
             if (nowFavorite) "favorite_added" else "favorite_removed",

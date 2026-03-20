@@ -95,6 +95,22 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
     }
 
+    private val imageDetailLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result: ActivityResult ->
+        val favoritesChanged = result.data?.getBooleanExtra(
+            ImageActivity.EXTRA_FAVORITES_CHANGED,
+            false
+        ) == true
+        if (!favoritesChanged) return@registerForActivityResult
+
+        if (isFavoritesMode) {
+            loadFavorites()
+        } else {
+            binding.appBarMain.contentMain.recyclerView.adapter?.notifyDataSetChanged()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -667,7 +683,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             intent.putExtra(ImageActivity.EXTRA_SWIPE_INDEX, feedContext.currentIndex)
         }
 
-        startActivity(intent)
+        imageDetailLauncher.launch(intent)
     }
 
     private fun checkForAppUpdates(force: Boolean = false) {
@@ -818,12 +834,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
         }
         
-        if (isFavoritesMode) {
-            loadFavorites()
-        } else {
-            // Favorites can change in ImageActivity; rebind rows so heart state stays in sync.
-            binding.appBarMain.contentMain.recyclerView.adapter?.notifyDataSetChanged()
-        }
+        if (isFavoritesMode) loadFavorites()
     }
 
     override fun onPause() {
