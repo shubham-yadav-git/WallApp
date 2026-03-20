@@ -5,8 +5,8 @@
 ### Create a Release
 ```bash
 # 1. Update version in app/build.gradle
-versionCode 14
-versionName "1.2.1"
+versionCode 15
+versionName "1.2.2"
 
 # 2. Commit changes
 git add app/build.gradle
