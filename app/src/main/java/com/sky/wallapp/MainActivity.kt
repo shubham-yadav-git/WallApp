@@ -47,6 +47,12 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         ALPHABETICAL
     }
 
+    private data class FeedContext(
+        val items: List<Model>,
+        val currentIndex: Int,
+        val source: String
+    )
+
     private lateinit var binding: ActivityMainBinding
     private var firebaseDatabase: FirebaseDatabase? = null
     private var mRef: DatabaseReference? = null
@@ -161,10 +167,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                         "wallpaper_open",
                         mapOf("source" to "category", "title" to model.title)
                     )
-                    val intent = Intent(this@MainActivity, ImageActivity::class.java)
-                    intent.putExtra("image", model.image)
-                    intent.putExtra("title", model.title)
-                    startActivity(intent)
+                    val feedContext = getFirebaseFeedContext(position, "category")
+                    openImageDetail(model, feedContext)
                 }
             }
 
@@ -354,17 +358,16 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     )
 
                     holder.itemView.setOnClickListener {
+                        val source = if (isFavoritesMode) "favorites" else "trending"
                         analyticsTracker.logEvent(
                             "wallpaper_open",
                             mapOf(
-                                "source" to if (isFavoritesMode) "favorites" else "trending",
+                                "source" to source,
                                 "title" to model.title
                             )
                         )
-                        val intent = Intent(this@MainActivity, ImageActivity::class.java)
-                        intent.putExtra("image", model.image)
-                        intent.putExtra("title", model.title)
-                        startActivity(intent)
+                        val feedContext = FeedContext(items = items, currentIndex = position, source = source)
+                        openImageDetail(model, feedContext)
                     }
                 }
 
@@ -421,10 +424,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                         "wallpaper_open",
                         mapOf("source" to "search_category", "title" to model.title)
                     )
-                    val intent = Intent(this@MainActivity, ImageActivity::class.java)
-                    intent.putExtra("image", model.image)
-                    intent.putExtra("title", model.title)
-                    startActivity(intent)
+                    val feedContext = getFirebaseFeedContext(position, "search_category")
+                    openImageDetail(model, feedContext)
                 }
             }
 
@@ -641,6 +642,32 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit {
             putString(KEY_FAVORITES_SORT_MODE, mode.name)
         }
+    }
+
+    private fun getFirebaseFeedContext(currentIndex: Int, source: String): FeedContext? {
+        val currentAdapter = adapter ?: return null
+        if (currentAdapter.itemCount <= 0) return null
+
+        val items = currentAdapter.snapshots.toList()
+        if (items.isEmpty()) return null
+
+        val safeIndex = currentIndex.coerceIn(0, items.lastIndex)
+        return FeedContext(items = items, currentIndex = safeIndex, source = source)
+    }
+
+    private fun openImageDetail(model: Model, feedContext: FeedContext?) {
+        val intent = Intent(this@MainActivity, ImageActivity::class.java).apply {
+            putExtra("image", model.image)
+            putExtra("title", model.title)
+        }
+
+        if (feedContext != null) {
+            val sessionId = WallpaperSwipeSession.createSession(feedContext.items, feedContext.source)
+            intent.putExtra(ImageActivity.EXTRA_SWIPE_SESSION_ID, sessionId)
+            intent.putExtra(ImageActivity.EXTRA_SWIPE_INDEX, feedContext.currentIndex)
+        }
+
+        startActivity(intent)
     }
 
     private fun checkForAppUpdates(force: Boolean = false) {

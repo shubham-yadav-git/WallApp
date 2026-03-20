@@ -1,6 +1,9 @@
 package com.sky.wallapp
 
 import android.Manifest
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.app.WallpaperManager
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -10,7 +13,11 @@ import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.View
+import android.view.GestureDetector
 import android.os.Environment
+import android.view.MotionEvent
+import android.view.animation.LinearInterpolator
 import android.view.animation.AnimationUtils
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -28,22 +35,43 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Locale
 import androidx.core.content.edit
+import kotlin.math.abs
 
 class ImageActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityImageBinding
     private var titlev: String? = null
     private var imageUrl: String? = null
+    private var currentIndex: Int = -1
+    private var swipeItems: List<Model> = emptyList()
+    private var swipeSource: String = "detail"
+    private var swipeCount: Int = 0
+    private var boundaryHitCount: Int = 0
+    private var sessionMetricsLogged = false
+    private var swipeHintAnimator: AnimatorSet? = null
+    private lateinit var gestureDetector: GestureDetector
     private lateinit var analyticsTracker: AnalyticsTracker
     private lateinit var reviewManager: ReviewManager
 
     companion object {
         const val WRITE_EXTERNAL_STORAGE_CODE = 1
+        const val EXTRA_SWIPE_SESSION_ID = "swipe_session_id"
+        const val EXTRA_SWIPE_INDEX = "swipe_index"
+
+        private const val STATE_CURRENT_INDEX = "state_current_index"
+        private const val STATE_TITLE = "state_title"
+        private const val STATE_IMAGE_URL = "state_image_url"
+        private const val STATE_SWIPE_COUNT = "state_swipe_count"
+        private const val PREFS_SWIPE_HINT = "swipe_hint_prefs"
+        private const val KEY_SWIPE_HINT_SHOWN = "swipe_hint_shown"
         private const val PREFS_REVIEW = "review_prompt_prefs"
         private const val KEY_POSITIVE_ACTION_COUNT = "positive_action_count"
         private const val KEY_LAST_REVIEW_REQUEST_TIME = "last_review_request_time"
         private const val REVIEW_ACTION_THRESHOLD = 3
         private const val REVIEW_COOLDOWN_MS = 30L * 24 * 60 * 60 * 1000 // 30 days
+        private const val SWIPE_DISTANCE_THRESHOLD = 120
+        private const val SWIPE_VELOCITY_THRESHOLD = 120
+        private const val ENABLE_CIRCULAR_SWIPE = true
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,16 +87,11 @@ class ImageActivity : AppCompatActivity() {
             setDisplayShowTitleEnabled(false)
         }
 
-        titlev = intent.getStringExtra("title")
-        imageUrl = intent.getStringExtra("image")
+        hydrateSwipeState(savedInstanceState)
+        setupSwipeGesture()
+        setupSwipeHint()
         analyticsTracker.logEvent("wallpaper_detail_open", mapOf("title" to titlev))
-
-        Glide.with(this)
-            .load(imageUrl)
-            .into(binding.imageView)
-
-        val animFadeIn = AnimationUtils.loadAnimation(applicationContext, R.anim.fade_in)
-        binding.imageView.startAnimation(animFadeIn)
+        renderCurrentWallpaper()
 
         binding.btnSave.setOnClickListener {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -89,6 +112,216 @@ class ImageActivity : AppCompatActivity() {
         binding.btnWall.setOnClickListener {
             openWallDialog()
         }
+    }
+
+    private fun hydrateSwipeState(savedInstanceState: Bundle?) {
+        val sessionId = intent.getStringExtra(EXTRA_SWIPE_SESSION_ID)
+        val session = WallpaperSwipeSession.getSession(sessionId)
+        if (session != null && session.items.isNotEmpty()) {
+            swipeItems = session.items
+            swipeSource = session.source
+            currentIndex = intent.getIntExtra(EXTRA_SWIPE_INDEX, 0).coerceIn(0, swipeItems.lastIndex)
+            applyModel(swipeItems[currentIndex])
+        } else {
+            titlev = intent.getStringExtra("title")
+            imageUrl = intent.getStringExtra("image")
+        }
+
+        if (savedInstanceState != null) {
+            currentIndex = savedInstanceState.getInt(STATE_CURRENT_INDEX, currentIndex)
+            titlev = savedInstanceState.getString(STATE_TITLE, titlev)
+            imageUrl = savedInstanceState.getString(STATE_IMAGE_URL, imageUrl)
+            swipeCount = savedInstanceState.getInt(STATE_SWIPE_COUNT, swipeCount)
+            if (swipeItems.isNotEmpty()) {
+                currentIndex = currentIndex.coerceIn(0, swipeItems.lastIndex)
+                applyModel(swipeItems[currentIndex])
+            }
+        }
+    }
+
+    private fun setupSwipeGesture() {
+        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                val start = e1 ?: return false
+                val distanceX = e2.x - start.x
+                val distanceY = e2.y - start.y
+
+                val isHorizontalSwipe = abs(distanceX) > abs(distanceY) &&
+                    abs(distanceX) > SWIPE_DISTANCE_THRESHOLD &&
+                    abs(velocityX) > SWIPE_VELOCITY_THRESHOLD
+
+                if (!isHorizontalSwipe) return false
+
+                return if (distanceX < 0) {
+                    showNextWallpaper()
+                } else {
+                    showPreviousWallpaper()
+                }
+            }
+        })
+
+        binding.imageView.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
+        }
+    }
+
+    private fun setupSwipeHint() {
+        if (swipeItems.size <= 1) {
+            binding.swipeHintCard.visibility = View.GONE
+            return
+        }
+
+        val prefs = getSharedPreferences(PREFS_SWIPE_HINT, MODE_PRIVATE)
+        val hasSeenHint = prefs.getBoolean(KEY_SWIPE_HINT_SHOWN, false)
+        val shouldShowHint = !hasSeenHint
+        binding.swipeHintCard.visibility = if (shouldShowHint) View.VISIBLE else View.GONE
+        if (shouldShowHint) startSwipeHintPulse() else stopSwipeHintPulse()
+
+        binding.swipeHintDismiss.setOnClickListener {
+            markSwipeHintSeen()
+        }
+    }
+
+    private fun markSwipeHintSeen() {
+        getSharedPreferences(PREFS_SWIPE_HINT, MODE_PRIVATE).edit {
+            putBoolean(KEY_SWIPE_HINT_SHOWN, true)
+        }
+        stopSwipeHintPulse()
+        binding.swipeHintCard.visibility = View.GONE
+    }
+
+    private fun startSwipeHintPulse() {
+        if (swipeHintAnimator?.isRunning == true) return
+
+        val nudge = ObjectAnimator.ofFloat(
+            binding.swipeHintCard,
+            View.TRANSLATION_X,
+            0f,
+            -16f,
+            16f,
+            0f
+        ).apply {
+            duration = 1200
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = LinearInterpolator()
+        }
+
+        val fade = ObjectAnimator.ofFloat(binding.swipeHintCard, View.ALPHA, 1f, 0.88f, 1f).apply {
+            duration = 1200
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = LinearInterpolator()
+        }
+
+        swipeHintAnimator = AnimatorSet().apply {
+            playTogether(nudge, fade)
+            start()
+        }
+    }
+
+    private fun stopSwipeHintPulse() {
+        swipeHintAnimator?.cancel()
+        swipeHintAnimator = null
+        binding.swipeHintCard.translationX = 0f
+        binding.swipeHintCard.alpha = 1f
+    }
+
+    private fun showNextWallpaper(): Boolean {
+        if (swipeItems.isEmpty()) return false
+        if (currentIndex >= swipeItems.lastIndex) {
+            if (ENABLE_CIRCULAR_SWIPE) {
+                currentIndex = 0
+                swipeCount += 1
+                markSwipeHintSeen()
+                applyModel(swipeItems[currentIndex])
+                renderCurrentWallpaper()
+                analyticsTracker.logEvent(
+                    "wallpaper_swipe_next",
+                    mapOf(
+                        "source" to swipeSource,
+                        "index" to currentIndex.toString(),
+                        "title" to titlev,
+                        "wrapped" to "true"
+                    )
+                )
+                return true
+            }
+
+            boundaryHitCount += 1
+            analyticsTracker.logEvent("wallpaper_swipe_boundary", mapOf("edge" to "last", "source" to swipeSource))
+            Toast.makeText(this, getString(R.string.no_next_wallpaper), Toast.LENGTH_SHORT).show()
+            return true
+        }
+
+        currentIndex += 1
+        swipeCount += 1
+        markSwipeHintSeen()
+        applyModel(swipeItems[currentIndex])
+        renderCurrentWallpaper()
+        analyticsTracker.logEvent(
+            "wallpaper_swipe_next",
+            mapOf("source" to swipeSource, "index" to currentIndex.toString(), "title" to titlev)
+        )
+        return true
+    }
+
+    private fun showPreviousWallpaper(): Boolean {
+        if (swipeItems.isEmpty()) return false
+        if (currentIndex <= 0) {
+            if (ENABLE_CIRCULAR_SWIPE) {
+                currentIndex = swipeItems.lastIndex
+                swipeCount += 1
+                markSwipeHintSeen()
+                applyModel(swipeItems[currentIndex])
+                renderCurrentWallpaper()
+                analyticsTracker.logEvent(
+                    "wallpaper_swipe_previous",
+                    mapOf(
+                        "source" to swipeSource,
+                        "index" to currentIndex.toString(),
+                        "title" to titlev,
+                        "wrapped" to "true"
+                    )
+                )
+                return true
+            }
+
+            boundaryHitCount += 1
+            analyticsTracker.logEvent("wallpaper_swipe_boundary", mapOf("edge" to "first", "source" to swipeSource))
+            Toast.makeText(this, getString(R.string.no_previous_wallpaper), Toast.LENGTH_SHORT).show()
+            return true
+        }
+
+        currentIndex -= 1
+        swipeCount += 1
+        markSwipeHintSeen()
+        applyModel(swipeItems[currentIndex])
+        renderCurrentWallpaper()
+        analyticsTracker.logEvent(
+            "wallpaper_swipe_previous",
+            mapOf("source" to swipeSource, "index" to currentIndex.toString(), "title" to titlev)
+        )
+        return true
+    }
+
+    private fun applyModel(model: Model) {
+        titlev = model.title
+        imageUrl = model.image
+    }
+
+    private fun renderCurrentWallpaper() {
+        Glide.with(this)
+            .load(imageUrl)
+            .into(binding.imageView)
+
+        val animFadeIn = AnimationUtils.loadAnimation(applicationContext, R.anim.fade_in)
+        binding.imageView.startAnimation(animFadeIn)
     }
 
     private fun openWallDialog() {
@@ -263,6 +496,35 @@ class ImageActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         onBackPressedDispatcher.onBackPressed()
         return true
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt(STATE_CURRENT_INDEX, currentIndex)
+        outState.putString(STATE_TITLE, titlev)
+        outState.putString(STATE_IMAGE_URL, imageUrl)
+        outState.putInt(STATE_SWIPE_COUNT, swipeCount)
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (sessionMetricsLogged) return
+
+        analyticsTracker.logEvent(
+            "wallpaper_swipe_session",
+            mapOf(
+                "source" to swipeSource,
+                "swipes_total" to swipeCount.toString(),
+                "boundary_hits" to boundaryHitCount.toString(),
+                "has_swipe" to (swipeCount > 0).toString()
+            )
+        )
+        sessionMetricsLogged = true
+    }
+
+    override fun onDestroy() {
+        stopSwipeHintPulse()
+        super.onDestroy()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

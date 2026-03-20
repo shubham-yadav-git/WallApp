@@ -32,6 +32,10 @@
     <string name="empty_wallpapers">No wallpapers found.</string>
     <string name="empty_search_results">No wallpapers match your search.</string>
     <string name="empty_favorites">No favorites yet. Tap Favorite on a wallpaper to save it.</string>
+    <string name="swipe_hint">Swipe left or right to browse wallpapers</string>
+    <string name="got_it">Got it</string>
+    <string name="no_next_wallpaper">You reached the last wallpaper.</string>
+    <string name="no_previous_wallpaper">You are on the first wallpaper.</string>
     <string name="nav_tagline">Curated daily backgrounds</string>
     <string name="nav_section_discover">Discover</string>
     <string name="nav_section_categories">Categories</string>
