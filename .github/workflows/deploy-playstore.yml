@@ -88,7 +88,6 @@ jobs:
           track: ${{ inputs.track || 'internal' }}
           status: completed
           inAppUpdatePriority: 2
-          whatsNewDirectory: distribution/whatsnew
           mappingFile: app/build/outputs/mapping/release/mapping.txt
       
       - name: Upload build artifacts
