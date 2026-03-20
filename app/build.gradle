@@ -31,6 +31,11 @@ android {
                 storePassword System.getenv("KEYSTORE_PASSWORD")
                 keyAlias System.getenv("KEY_ALIAS")
                 keyPassword System.getenv("KEY_PASSWORD")
+                // Support both JKS and PKCS12 formats
+                storeType System.getenv("KEYSTORE_TYPE") ?: "JKS"
+                // Use v1 and v2 signing for maximum compatibility
+                v1SigningEnabled true
+                v2SigningEnabled true
             }
             // For local builds (optional - configure in local.properties or gradle.properties)
             else if (project.hasProperty('RELEASE_STORE_FILE')) {
@@ -38,6 +43,9 @@ android {
                 storePassword RELEASE_STORE_PASSWORD
                 keyAlias RELEASE_KEY_ALIAS
                 keyPassword RELEASE_KEY_PASSWORD
+                storeType project.hasProperty('RELEASE_STORE_TYPE') ? RELEASE_STORE_TYPE : "JKS"
+                v1SigningEnabled true
+                v2SigningEnabled true
             }
         }
     }

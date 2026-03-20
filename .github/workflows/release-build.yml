@@ -37,16 +37,38 @@ jobs:
       - name: Decode Keystore
         if: steps.check_secrets.outputs.has_keystore == 'true'
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore-original
+          
+          # Detect keystore type and convert to JKS if needed
+          if file $GITHUB_WORKSPACE/keystore-original | grep -q "Java KeyStore"; then
+            echo "Keystore is already in JKS format"
+            mv $GITHUB_WORKSPACE/keystore-original $GITHUB_WORKSPACE/keystore.jks
+            echo "KEYSTORE_TYPE=JKS" >> $GITHUB_ENV
+          else
+            echo "Converting PKCS12 keystore to JKS format"
+            # Convert PKCS12 to JKS using keytool
+            keytool -importkeystore \
+              -srckeystore $GITHUB_WORKSPACE/keystore-original \
+              -srcstoretype PKCS12 \
+              -srcstorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+              -destkeystore $GITHUB_WORKSPACE/keystore.jks \
+              -deststoretype JKS \
+              -deststorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+              -noprompt
+            echo "KEYSTORE_TYPE=JKS" >> $GITHUB_ENV
+            rm $GITHUB_WORKSPACE/keystore-original
+          fi
       
       - name: Build Release AAB (Signed)
         if: steps.check_secrets.outputs.has_keystore == 'true'
         run: ./gradlew bundleRelease --stacktrace
         env:
+          CI: true
           KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_TYPE: ${{ env.KEYSTORE_TYPE }}
       
       - name: Build Release AAB (Unsigned)
         if: steps.check_secrets.outputs.has_keystore == 'false'
@@ -56,8 +78,12 @@ jobs:
         if: steps.check_secrets.outputs.has_keystore == 'true'
         run: ./gradlew assembleRelease --stacktrace
         env:
+          CI: true
           KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_TYPE: ${{ env.KEYSTORE_TYPE }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       

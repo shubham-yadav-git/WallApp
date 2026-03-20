@@ -1,10 +1,7 @@
 name: Deploy to Google Play
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'  # Triggers on version tags like v1.2.0, v1.3.0, etc.
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:  # Manual triggering only (prevents duplicate runs with release-build.yml)
     inputs:
       track:
         description: 'Release track'
@@ -38,7 +35,27 @@ jobs:
       
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore-original
+          
+          # Detect keystore type and convert to JKS if needed
+          if file $GITHUB_WORKSPACE/keystore-original | grep -q "Java KeyStore"; then
+            echo "Keystore is already in JKS format"
+            mv $GITHUB_WORKSPACE/keystore-original $GITHUB_WORKSPACE/keystore.jks
+            echo "KEYSTORE_TYPE=JKS" >> $GITHUB_ENV
+          else
+            echo "Converting PKCS12 keystore to JKS format"
+            # Convert PKCS12 to JKS using keytool
+            keytool -importkeystore \
+              -srckeystore $GITHUB_WORKSPACE/keystore-original \
+              -srcstoretype PKCS12 \
+              -srcstorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+              -destkeystore $GITHUB_WORKSPACE/keystore.jks \
+              -deststoretype JKS \
+              -deststorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+              -noprompt
+            echo "KEYSTORE_TYPE=JKS" >> $GITHUB_ENV
+            rm $GITHUB_WORKSPACE/keystore-original
+          fi
       
       - name: Build Release AAB
         run: ./gradlew bundleRelease --stacktrace
@@ -48,6 +65,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_TYPE: ${{ env.KEYSTORE_TYPE }}
       
       - name: Decode Service Account JSON
         run: |
