@@ -42,6 +42,12 @@ import kotlin.math.abs
 
 class ImageActivity : AppCompatActivity() {
 
+    private enum class HapticStyle {
+        CONTEXT_CLICK,
+        CONFIRM_REJECT_WITH_FALLBACK,
+        DEVICE_DEFAULT
+    }
+
     private lateinit var binding: ActivityImageBinding
     private var titlev: String? = null
     private var imageUrl: String? = null
@@ -75,6 +81,7 @@ class ImageActivity : AppCompatActivity() {
         private const val SWIPE_DISTANCE_THRESHOLD = 120
         private const val SWIPE_VELOCITY_THRESHOLD = 120
         private const val ENABLE_CIRCULAR_SWIPE = true
+        private val WALLPAPER_HAPTIC_STYLE = HapticStyle.CONFIRM_REJECT_WITH_FALLBACK
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -340,25 +347,22 @@ class ImageActivity : AppCompatActivity() {
             .create()
 
         dialogView.findViewById<MaterialButton>(R.id.btn_wall_home).setOnClickListener {
-            triggerDialogHaptic(isPositive = true)
             applyWallpaper(mDrawable.bitmap, WallpaperManager.FLAG_SYSTEM, "set_wallpaper_home", getString(R.string.wallpaper_home_success))
             dialog.dismiss()
         }
 
         dialogView.findViewById<MaterialButton>(R.id.btn_wall_lock).setOnClickListener {
-            triggerDialogHaptic(isPositive = true)
             applyWallpaper(mDrawable.bitmap, WallpaperManager.FLAG_LOCK, "set_wallpaper_lock", getString(R.string.wallpaper_lock_success))
             dialog.dismiss()
         }
 
         dialogView.findViewById<MaterialButton>(R.id.btn_wall_both).setOnClickListener {
-            triggerDialogHaptic(isPositive = true)
             applyWallpaper(mDrawable.bitmap, null, "set_wallpaper_both", getString(R.string.wallpaper_both_success))
             dialog.dismiss()
         }
 
         dialogView.findViewById<MaterialButton>(R.id.btn_wall_cancel).setOnClickListener {
-            triggerDialogHaptic(isPositive = false)
+            performActionHaptic()
             dialog.dismiss()
         }
 
@@ -376,11 +380,26 @@ class ImageActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun triggerDialogHaptic(isPositive: Boolean) {
-        val feedbackConstant = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (isPositive) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.REJECT
-        } else {
-            HapticFeedbackConstants.CONTEXT_CLICK
+    private fun performActionHaptic() {
+        val feedbackConstant = when (WALLPAPER_HAPTIC_STYLE) {
+            HapticStyle.CONTEXT_CLICK -> HapticFeedbackConstants.CONTEXT_CLICK
+            HapticStyle.CONFIRM_REJECT_WITH_FALLBACK -> HapticFeedbackConstants.CONTEXT_CLICK
+            HapticStyle.DEVICE_DEFAULT -> HapticFeedbackConstants.VIRTUAL_KEY
+        }
+        binding.root.performHapticFeedback(feedbackConstant)
+    }
+
+    private fun performOutcomeHaptic(isSuccess: Boolean) {
+        val feedbackConstant = when (WALLPAPER_HAPTIC_STYLE) {
+            HapticStyle.CONTEXT_CLICK -> HapticFeedbackConstants.CONTEXT_CLICK
+            HapticStyle.CONFIRM_REJECT_WITH_FALLBACK -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    if (isSuccess) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.REJECT
+                } else {
+                    HapticFeedbackConstants.CONTEXT_CLICK
+                }
+            }
+            HapticStyle.DEVICE_DEFAULT -> HapticFeedbackConstants.VIRTUAL_KEY
         }
         binding.root.performHapticFeedback(feedbackConstant)
     }
@@ -399,9 +418,11 @@ class ImageActivity : AppCompatActivity() {
             } else {
                 wallpaperManager.setBitmap(bitmap)
             }
+            performOutcomeHaptic(isSuccess = true)
             Toast.makeText(this, successMessage, Toast.LENGTH_SHORT).show()
             onPositiveAction(analyticsEvent)
         } catch (e: Exception) {
+            performOutcomeHaptic(isSuccess = false)
             analyticsTracker.logEvent("set_wallpaper_failed", mapOf("error" to e.message))
             Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
         }
