@@ -469,6 +469,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu, menu)
         menu.findItem(R.id.action_sort_favorites).isVisible = isFavoritesMode
+        menu.findItem(R.id.action_auto_wallpaper)?.title = getAutoWallpaperMenuTitle()
+        menu.findItem(R.id.action_auto_wallpaper_run_now)?.isVisible = AutoWallpaperManager.isEnabled(this)
         val searchView = menu.findItem(R.id.action_search).actionView as SearchView
 
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
@@ -488,6 +490,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         menu.findItem(R.id.action_sort_favorites)?.isVisible = isFavoritesMode
+        menu.findItem(R.id.action_auto_wallpaper)?.title = getAutoWallpaperMenuTitle()
+        menu.findItem(R.id.action_auto_wallpaper_run_now)?.isVisible = AutoWallpaperManager.isEnabled(this)
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -495,6 +499,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         return when (item.itemId) {
             R.id.action_sort_favorites -> {
                 showFavoritesSortDialog()
+                true
+            }
+            R.id.action_auto_wallpaper -> {
+                handleAutoWallpaperAction()
+                true
+            }
+            R.id.action_auto_wallpaper_run_now -> {
+                runAutoWallpaperNow()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -651,6 +663,56 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 dialog.dismiss()
             }
             .show()
+    }
+
+    private fun handleAutoWallpaperAction() {
+        if (AutoWallpaperManager.isEnabled(this)) {
+            AutoWallpaperManager.disable(this)
+            analyticsTracker.logEvent("auto_wallpaper_disabled")
+            invalidateOptionsMenu()
+            Toast.makeText(this, getString(R.string.auto_wallpaper_disabled), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (!AutoWallpaperManager.hasEligibleFavorites(this)) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.auto_wallpaper_title)
+                .setMessage(R.string.auto_wallpaper_requires_favorites)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+            return
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.auto_wallpaper_title)
+            .setMessage(R.string.auto_wallpaper_message)
+            .setPositiveButton(R.string.auto_wallpaper_enable) { _, _ ->
+                AutoWallpaperManager.enable(this)
+                analyticsTracker.logEvent("auto_wallpaper_enabled")
+                invalidateOptionsMenu()
+                Toast.makeText(this, getString(R.string.auto_wallpaper_enabled), Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun getAutoWallpaperMenuTitle(): String {
+        return if (AutoWallpaperManager.isEnabled(this)) {
+            getString(R.string.action_auto_wallpaper_disable)
+        } else {
+            getString(R.string.action_auto_wallpaper_enable)
+        }
+    }
+
+    private fun runAutoWallpaperNow() {
+        if (!AutoWallpaperManager.hasEligibleFavorites(this)) {
+            Toast.makeText(this, getString(R.string.auto_wallpaper_requires_favorites), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        AutoWallpaperManager.runNow(this)
+        analyticsTracker.logEvent("auto_wallpaper_run_now_requested")
+        Toast.makeText(this, getString(R.string.auto_wallpaper_run_now_queued), Toast.LENGTH_SHORT).show()
     }
 
     private fun readFavoritesSortMode(): FavoritesSortMode {

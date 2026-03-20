@@ -21,6 +21,17 @@
     <string name="favorite_removed">Removed from favorites</string>
     <string name="share">Share</string>
     <string name="sort">Sort</string>
+    <string name="action_auto_wallpaper_enable">Enable daily auto wallpaper</string>
+    <string name="action_auto_wallpaper_disable">Disable daily auto wallpaper</string>
+    <string name="action_auto_wallpaper_run_now">Run auto wallpaper now</string>
+    <string name="auto_wallpaper_title">Daily auto wallpaper</string>
+    <string name="auto_wallpaper_message">Automatically change your home screen wallpaper every day using your favorite wallpapers.</string>
+    <string name="auto_wallpaper_enable">Enable</string>
+    <string name="auto_wallpaper_disable">Disable</string>
+    <string name="auto_wallpaper_requires_favorites">Add at least one favorite wallpaper before enabling daily auto wallpaper.</string>
+    <string name="auto_wallpaper_enabled">Daily auto wallpaper enabled.</string>
+    <string name="auto_wallpaper_disabled">Daily auto wallpaper disabled.</string>
+    <string name="auto_wallpaper_run_now_queued">Auto wallpaper update queued.</string>
     <string name="sort_favorites_title">Sort favorites</string>
     <string name="sort_recent">Recent</string>
     <string name="sort_alphabetical">A-Z</string>

@@ -13,6 +13,7 @@ class WallAppApplication : Application(), Configuration.Provider {
         super.onCreate()
         configureFirebasePersistenceOnce()
         enableFirebaseDebugLogging()
+        AutoWallpaperManager.ensureScheduledIfEnabled(this)
     }
 
     private fun configureFirebasePersistenceOnce() {
