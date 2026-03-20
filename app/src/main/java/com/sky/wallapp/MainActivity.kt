@@ -321,7 +321,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     val model = items[position]
 
                     holder.textView.text = model.title
-                    Glide.with(this@MainActivity)
+                    Glide.with(applicationContext)
                         .load(model.image)
                         .into(holder.imageView)
                     bindFavoriteUi(

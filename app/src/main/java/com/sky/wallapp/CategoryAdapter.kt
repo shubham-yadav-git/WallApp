@@ -1,5 +1,6 @@
 package com.sky.wallapp
 
+import android.app.Activity
 import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
@@ -60,13 +61,32 @@ class CategoryAdapter(
                 val path = category.path!!
 
                 fun loadImageIntoHolder(imageUrl: String?) {
+                    // Check if the ViewHolder is still attached and valid
+                    if (holder.bindingAdapterPosition == RecyclerView.NO_POSITION) {
+                        return
+                    }
+                    
+                    // Check if context is an Activity and if it's destroyed
+                    val contextToUse = when {
+                        context is Activity && (context.isDestroyed || context.isFinishing) -> {
+                            // Use application context if activity is destroyed/finishing
+                            context.applicationContext
+                        }
+                        else -> context
+                    }
+                    
                     if (!imageUrl.isNullOrEmpty()) {
-                        Glide.with(context)
-                            .load(imageUrl)
-                            .placeholder(defaultIcon)
-                            .error(defaultIcon)
-                            .centerCrop()
-                            .into(holder.iconIv)
+                        try {
+                            Glide.with(contextToUse)
+                                .load(imageUrl)
+                                .placeholder(defaultIcon)
+                                .error(defaultIcon)
+                                .centerCrop()
+                                .into(holder.iconIv)
+                        } catch (_: IllegalArgumentException) {
+                            // If Glide still fails, fall back to default icon
+                            holder.iconIv.setImageResource(defaultIcon)
+                        }
                     } else {
                         holder.iconIv.setImageResource(defaultIcon)
                     }
