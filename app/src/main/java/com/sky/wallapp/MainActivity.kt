@@ -25,6 +25,7 @@ import com.firebase.ui.database.FirebaseRecyclerAdapter
 import com.firebase.ui.database.FirebaseRecyclerOptions
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationView
+import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.database.*
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.MobileAds
@@ -34,6 +35,7 @@ import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
+import com.google.android.play.core.install.InstallStateUpdatedListener
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.sky.wallapp.databinding.ActivityMainBinding
 import androidx.core.net.toUri
@@ -57,6 +59,26 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private lateinit var analyticsTracker: AnalyticsTracker
     private lateinit var appUpdateManager: AppUpdateManager
     private var favoritesSortMode = FavoritesSortMode.RECENT
+    
+    private val installStateUpdatedListener = InstallStateUpdatedListener { state ->
+        when (state.installStatus()) {
+            InstallStatus.DOWNLOADED -> {
+                analyticsTracker.logEvent("in_app_update_downloaded")
+                showUpdateDownloadedSnackbar()
+            }
+            InstallStatus.DOWNLOADING -> {
+                analyticsTracker.logEvent("in_app_update_downloading")
+            }
+            InstallStatus.INSTALLING -> {
+                analyticsTracker.logEvent("in_app_update_installing")
+            }
+            InstallStatus.FAILED -> {
+                analyticsTracker.logEvent("in_app_update_failed")
+            }
+            else -> {}
+        }
+    }
+    
     private val updateFlowLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result: ActivityResult ->
@@ -80,6 +102,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         
         analyticsTracker = AnalyticsTracker(FirebaseAnalytics.getInstance(this))
         appUpdateManager = AppUpdateManagerFactory.create(this)
+        appUpdateManager.registerListener(installStateUpdatedListener)
         favoritesSortMode = readFavoritesSortMode()
         analyticsTracker.logEvent("app_open")
         checkForAppUpdates()
@@ -627,32 +650,75 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             .addOnSuccessListener { updateInfo ->
                 markUpdateCheckDone()
 
+                // If update is already downloaded, complete it
                 if (updateInfo.installStatus() == InstallStatus.DOWNLOADED) {
-                    appUpdateManager.completeUpdate()
+                    showUpdateDownloadedSnackbar()
                     return@addOnSuccessListener
                 }
 
-                if (
-                    updateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
-                    updateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
-                ) {
-                    try {
-                        appUpdateManager.startUpdateFlowForResult(
-                            updateInfo,
-                            updateFlowLauncher,
-                            AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE).build()
-                        )
-                        analyticsTracker.logEvent("in_app_update_prompt_shown")
-                    } catch (_: IntentSender.SendIntentException) {
-                        // Ignore; no safe fallback required for optional update prompt.
+                // Check if update is available
+                if (updateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
+                    val updatePriority = updateInfo.updatePriority()
+                    
+                    // Use immediate update for high priority updates (4-5)
+                    // Use flexible update for normal updates (0-3)
+                    val updateType = if (updatePriority >= 4) {
+                        AppUpdateType.IMMEDIATE
+                    } else {
+                        AppUpdateType.FLEXIBLE
                     }
+                    
+                    if (updateInfo.isUpdateTypeAllowed(updateType)) {
+                        try {
+                            appUpdateManager.startUpdateFlowForResult(
+                                updateInfo,
+                                updateFlowLauncher,
+                                AppUpdateOptions.newBuilder(updateType).build()
+                            )
+                            analyticsTracker.logEvent(
+                                "in_app_update_prompt_shown",
+                                mapOf(
+                                    "update_type" to if (updateType == AppUpdateType.IMMEDIATE) "immediate" else "flexible",
+                                    "priority" to updatePriority.toString()
+                                )
+                            )
+                        } catch (e: IntentSender.SendIntentException) {
+                            analyticsTracker.logEvent(
+                                "in_app_update_start_failed",
+                                mapOf("error" to e.message.orEmpty())
+                            )
+                            // Ignore; no safe fallback required for optional update prompt.
+                        }
+                    }
+                } else if (force) {
+                    // Only show "no update" message if user manually checked
+                    Toast.makeText(this, getString(R.string.no_updates_available), Toast.LENGTH_SHORT).show()
                 }
             }
-            .addOnFailureListener {
+            .addOnFailureListener { exception ->
+                analyticsTracker.logEvent(
+                    "in_app_update_check_failed",
+                    mapOf("error" to exception.message.orEmpty())
+                )
                 if (force) {
                     Toast.makeText(this, getString(R.string.update_check_failed), Toast.LENGTH_SHORT).show()
                 }
             }
+    }
+    
+    private fun showUpdateDownloadedSnackbar() {
+        Snackbar.make(
+            binding.root,
+            "Update downloaded",
+            Snackbar.LENGTH_INDEFINITE
+        ).apply {
+            setAction("RESTART") {
+                analyticsTracker.logEvent("in_app_update_restart_clicked")
+                appUpdateManager.completeUpdate()
+            }
+            setActionTextColor(getColor(R.color.colorAccent))
+            show()
+        }
     }
 
     private fun shouldCheckForUpdatesNow(): Boolean {
@@ -698,11 +764,33 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     override fun onResume() {
         super.onResume()
         binding.appBarMain.contentMain.adView.resume()
+        
+        // Check for stalled or downloaded updates
         appUpdateManager.appUpdateInfo.addOnSuccessListener { updateInfo ->
-            if (updateInfo.installStatus() == InstallStatus.DOWNLOADED) {
-                appUpdateManager.completeUpdate()
+            when (updateInfo.installStatus()) {
+                InstallStatus.DOWNLOADED -> {
+                    showUpdateDownloadedSnackbar()
+                }
+                InstallStatus.INSTALLING -> {
+                    // Update is being installed in the background
+                }
+                else -> {
+                    // If an immediate update was stalled, resume it
+                    if (updateInfo.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
+                        try {
+                            appUpdateManager.startUpdateFlowForResult(
+                                updateInfo,
+                                updateFlowLauncher,
+                                AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
+                            )
+                        } catch (e: IntentSender.SendIntentException) {
+                            // Failed to resume update
+                        }
+                    }
+                }
             }
         }
+        
         if (isFavoritesMode) {
             loadFavorites()
         }
@@ -715,6 +803,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onDestroy() {
         binding.appBarMain.contentMain.adView.destroy()
+        appUpdateManager.unregisterListener(installStateUpdatedListener)
         super.onDestroy()
     }
 

@@ -44,6 +44,7 @@
     <string name="nav_share_friends">Share with friends</string>
     <string name="nav_privacy_policy">Privacy policy</string>
     <string name="update_check_failed">Could not check for app updates.</string>
+    <string name="no_updates_available">You\'re already on the latest version!</string>
 
     <string name="privacy_policy_title">Privacy Policy</string>
     <string name="privacy_policy_last_updated">Last updated: March 19, 2026</string>
