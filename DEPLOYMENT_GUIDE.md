@@ -137,8 +137,8 @@ base64 -i /path/to/service-account.json | pbcopy
 
 1. **Update version** in `app/build.gradle`:
 ```gradle
-versionCode 14
-versionName "1.2.1"
+versionCode 16
+versionName "1.2.3"
 ```
 
 2. **Commit the changes**:

@@ -14,8 +14,8 @@ git commit -m "Bump version to 1.2.1"
 git push
 
 # 3. Create and push tag
-git tag v1.2.1
-git push origin v1.2.1
+git tag v1.2.3
+git push origin v1.2.3
 
 # ✅ Done! Check GitHub Actions for automated build
 ```
