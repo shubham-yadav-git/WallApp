@@ -2,22 +2,38 @@
 
 ## 🚀 Common Commands
 
-### Create a Release
+### Create a Release (Auto-Deploy Method - Recommended)
 ```bash
 # 1. Update version in app/build.gradle
-versionCode 15
-versionName "1.2.2"
+versionCode 16
+versionName "1.2.3"
+
+# 2. Commit and push to master
+git add app/build.gradle
+git commit -m "Bump version to 1.2.3"
+git push origin master
+
+# ✅ Done! Automatically deploys to Play Store internal track
+# 📦 Check GitHub Actions for deployment status
+```
+
+### Create a Release (Tag Method - For Production)
+```bash
+# 1. Update version in app/build.gradle
+versionCode 16
+versionName "1.2.3"
 
 # 2. Commit changes
 git add app/build.gradle
-git commit -m "Bump version to 1.2.1"
+git commit -m "Bump version to 1.2.3"
 git push
 
 # 3. Create and push tag
 git tag v1.2.3
 git push origin v1.2.3
 
-# ✅ Done! Check GitHub Actions for automated build
+# 4. Manually deploy to production via GitHub Actions
+# ✅ Go to Actions → Deploy to Google Play → Run workflow → production
 ```
 
 ### Test Build Locally
@@ -27,7 +43,17 @@ git push origin v1.2.3
 
 # Release build (unsigned)
 ./gradlew bundleRelease
+```
 
+### Deploy to Play Store
+```bash
+# Automatic deployment (internal track)
+git push origin master  # Automatically deploys!
+
+# Manual deployment (any track)
+# Go to: https://github.com/shubham-yadav-git/WallApp/actions
+# → Deploy to Google Play → Run workflow → Select track
+```
 # Run helper script
 ./deployment-helper.sh
 ```

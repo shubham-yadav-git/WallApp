@@ -59,9 +59,12 @@ WallApp/
 - Requires: Keystore secrets
 
 ### Deploy to Play Store (`deploy-playstore.yml`)
-- Triggers on git tags or manual
+- **Triggers on push to master** (automatic deployment to internal track) 🆕
+- Triggers on git tags or manual workflow dispatch
 - Uploads to Google Play Console
 - Requires: Keystore + PLAY_STORE_SERVICE_ACCOUNT_JSON
+- **Default track: internal** (automatic)
+- Manual track selection: internal / alpha / beta / production
 
 ## Development Guidelines
 
@@ -99,11 +102,18 @@ defaultConfig {
 ```
 
 ### Deployment
+**Automatic Deployment (Recommended)**:
+1. Update version in app/build.gradle
+2. Commit: `git commit -m "Bump version to X.X.X"`
+3. Push: `git push origin master`
+4. Automatically deploys to Play Store internal track!
+
+**Manual Production Deployment**:
 1. Update version in app/build.gradle
 2. Commit: `git commit -m "Bump version to X.X.X"`
 3. Tag: `git tag vX.X.X`
 4. Push: `git push origin vX.X.X`
-5. GitHub Actions handles the rest
+5. Go to GitHub Actions → Deploy to Google Play → Select production track
 
 ## Common Issues & Solutions
 

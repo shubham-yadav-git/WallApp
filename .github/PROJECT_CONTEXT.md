@@ -11,10 +11,12 @@
 
 ## Current State
 ✅ CI/CD workflows configured and working
+✅ **Automatic deployment to Play Store internal track on master push**
 ✅ Keystore setup complete (JKS with auto-conversion)
 ✅ Firebase integrated (Analytics, Crashlytics, AdMob)
 ✅ Play Store service account configured
 ✅ Automated deployments via GitHub Actions
+✅ In-app updates fully implemented
 
 ## Next Version Numbers
 - Next patch: 1.2.4 (Code: 17)
@@ -35,7 +37,18 @@
 
 ## Common Tasks
 
-### Deploy New Version
+### Deploy New Version (Automatic - Recommended)
+```bash
+# 1. Update version in app/build.gradle
+# 2. Commit and push to master
+git add app/build.gradle
+git commit -m "Bump version to X.X.X"
+git push origin master
+
+# ✅ Automatically deploys to Play Store internal track!
+```
+
+### Deploy New Version (Manual - For Production)
 ```bash
 # 1. Update version in app/build.gradle
 # 2. Commit changes
@@ -46,6 +59,9 @@ git push
 # 3. Create and push tag
 git tag vX.X.X
 git push origin vX.X.X
+
+# 4. Go to GitHub Actions → Deploy to Google Play
+#    → Run workflow → Select production track
 ```
 
 ### Test Build Locally
