@@ -15,8 +15,10 @@ import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.GestureDetector
+import android.view.HapticFeedbackConstants
 import android.os.Environment
 import android.view.MotionEvent
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.view.animation.AnimationUtils
 import android.widget.Toast
@@ -24,6 +26,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.google.android.material.button.MaterialButton
 import com.bumptech.glide.Glide
 import com.google.android.play.core.review.ReviewManager
 import com.google.android.play.core.review.ReviewManagerFactory
@@ -331,46 +334,77 @@ class ImageActivity : AppCompatActivity() {
             return
         }
 
-        val mBitmap = mDrawable.bitmap
-        val wallpaperManager = WallpaperManager.getInstance(applicationContext)
+        val dialogView = layoutInflater.inflate(R.layout.dialog_set_wallpaper, null)
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setView(dialogView)
+            .create()
 
-        val wallOptions = arrayOf("Home Screen", "Lock Screen", "Both")
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Set Wallpaper")
-            .setItems(wallOptions) { _, i ->
-                Toast.makeText(this@ImageActivity, "Setting wallpaper...", Toast.LENGTH_SHORT).show()
-                try {
-                    when (i) {
-                        0 -> {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                                wallpaperManager.setBitmap(mBitmap, null, true, WallpaperManager.FLAG_SYSTEM)
-                            } else {
-                                wallpaperManager.setBitmap(mBitmap)
-                            }
-                            Toast.makeText(this, "Home Screen set successfully", Toast.LENGTH_SHORT).show()
-                            onPositiveAction("set_wallpaper_home")
-                        }
-                        1 -> {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                                wallpaperManager.setBitmap(mBitmap, null, true, WallpaperManager.FLAG_LOCK)
-                            } else {
-                                wallpaperManager.setBitmap(mBitmap)
-                            }
-                            Toast.makeText(this, "Lock Screen set successfully", Toast.LENGTH_SHORT).show()
-                            onPositiveAction("set_wallpaper_lock")
-                        }
-                        else -> {
-                            wallpaperManager.setBitmap(mBitmap)
-                            Toast.makeText(this, "Wallpaper set successfully", Toast.LENGTH_SHORT).show()
-                            onPositiveAction("set_wallpaper_both")
-                        }
-                    }
-                } catch (e: Exception) {
-                    analyticsTracker.logEvent("set_wallpaper_failed", mapOf("error" to e.message))
-                    Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
+        dialogView.findViewById<MaterialButton>(R.id.btn_wall_home).setOnClickListener {
+            triggerDialogHaptic(isPositive = true)
+            applyWallpaper(mDrawable.bitmap, WallpaperManager.FLAG_SYSTEM, "set_wallpaper_home", getString(R.string.wallpaper_home_success))
+            dialog.dismiss()
+        }
+
+        dialogView.findViewById<MaterialButton>(R.id.btn_wall_lock).setOnClickListener {
+            triggerDialogHaptic(isPositive = true)
+            applyWallpaper(mDrawable.bitmap, WallpaperManager.FLAG_LOCK, "set_wallpaper_lock", getString(R.string.wallpaper_lock_success))
+            dialog.dismiss()
+        }
+
+        dialogView.findViewById<MaterialButton>(R.id.btn_wall_both).setOnClickListener {
+            triggerDialogHaptic(isPositive = true)
+            applyWallpaper(mDrawable.bitmap, null, "set_wallpaper_both", getString(R.string.wallpaper_both_success))
+            dialog.dismiss()
+        }
+
+        dialogView.findViewById<MaterialButton>(R.id.btn_wall_cancel).setOnClickListener {
+            triggerDialogHaptic(isPositive = false)
+            dialog.dismiss()
+        }
+
+        dialog.setOnShowListener {
+            dialogView.alpha = 0f
+            dialogView.translationY = 24f
+            dialogView.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(180)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+
+        dialog.show()
+    }
+
+    private fun triggerDialogHaptic(isPositive: Boolean) {
+        val feedbackConstant = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (isPositive) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.REJECT
+        } else {
+            HapticFeedbackConstants.CONTEXT_CLICK
+        }
+        binding.root.performHapticFeedback(feedbackConstant)
+    }
+
+    private fun applyWallpaper(
+        bitmap: Bitmap,
+        targetFlag: Int?,
+        analyticsEvent: String,
+        successMessage: String
+    ) {
+        val wallpaperManager = WallpaperManager.getInstance(applicationContext)
+        Toast.makeText(this@ImageActivity, getString(R.string.wallpaper_setting), Toast.LENGTH_SHORT).show()
+        try {
+            if (targetFlag != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                wallpaperManager.setBitmap(bitmap, null, true, targetFlag)
+            } else {
+                wallpaperManager.setBitmap(bitmap)
             }
-            .show()
+            Toast.makeText(this, successMessage, Toast.LENGTH_SHORT).show()
+            onPositiveAction(analyticsEvent)
+        } catch (e: Exception) {
+            analyticsTracker.logEvent("set_wallpaper_failed", mapOf("error" to e.message))
+            Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     /**

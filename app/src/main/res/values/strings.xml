@@ -25,6 +25,15 @@
     <string name="sort_recent">Recent</string>
     <string name="sort_alphabetical">A-Z</string>
     <string name="set_wallpaper">Set Wallpaper</string>
+    <string name="wallpaper_target_subtitle">Choose where you want to apply this wallpaper.</string>
+    <string name="wallpaper_target_home">Home screen</string>
+    <string name="wallpaper_target_lock">Lock screen</string>
+    <string name="wallpaper_target_both">Home + Lock screen</string>
+    <string name="wallpaper_setting">Setting wallpaper…</string>
+    <string name="wallpaper_home_success">Home screen set successfully</string>
+    <string name="wallpaper_lock_success">Lock screen set successfully</string>
+    <string name="wallpaper_both_success">Wallpaper set successfully</string>
+    <string name="cancel">Cancel</string>
     <string name="premium_wallpapers">Premium Wallpapers</string>
     <string name="app_version">v1.2.0</string>
     <string name="wallpaper_image_desc">Wallpaper image</string>
