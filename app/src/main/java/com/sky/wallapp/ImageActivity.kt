@@ -21,6 +21,7 @@ import android.view.MotionEvent
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.view.animation.AnimationUtils
+import android.view.animation.AccelerateInterpolator
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.Insets
@@ -29,6 +30,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import com.google.android.material.button.MaterialButton
 import com.bumptech.glide.Glide
 import com.google.android.play.core.review.ReviewManager
@@ -199,6 +201,7 @@ class ImageActivity : AppCompatActivity() {
             Intent().putExtra(EXTRA_FAVORITES_CHANGED, true)
         )
         performActionHaptic()
+        showDoubleTapHeartFeedback(nowFavorite)
         analyticsTracker.logEvent(
             if (nowFavorite) "favorite_added" else "favorite_removed",
             mapOf(
@@ -214,19 +217,60 @@ class ImageActivity : AppCompatActivity() {
         ).show()
     }
 
+    private fun showDoubleTapHeartFeedback(isAddedToFavorites: Boolean) {
+        val heart = binding.doubleTapHeart
+        heart.setImageResource(
+            if (isAddedToFavorites) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
+        )
+
+        heart.animate().cancel()
+        heart.scaleX = 0.6f
+        heart.scaleY = 0.6f
+        heart.alpha = 0f
+        heart.visibility = View.VISIBLE
+
+        heart.animate()
+            .scaleX(1.18f)
+            .scaleY(1.18f)
+            .alpha(0.95f)
+            .setDuration(170)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                heart.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .alpha(0f)
+                    .setDuration(180)
+                    .setInterpolator(AccelerateInterpolator())
+                    .withEndAction {
+                        heart.visibility = View.GONE
+                    }
+                    .start()
+            }
+            .start()
+    }
+
     private fun applySystemBarInsets() {
         val initialTopPadding = binding.toolbar.paddingTop
+        val hintLayoutParams = binding.swipeHintCard.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
+        val actionLayoutParams = binding.actionCard.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
+        val initialHintTopMargin = hintLayoutParams.topMargin
+        val initialActionBottomMargin = actionLayoutParams.bottomMargin
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.toolbar) { view, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val systemBars: Insets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(
-                view.paddingLeft,
-                initialTopPadding + systemBars.top,
-                view.paddingRight,
-                view.paddingBottom
-            )
+            binding.toolbar.updatePadding(top = initialTopPadding + systemBars.top)
+
+            hintLayoutParams.topMargin = initialHintTopMargin + systemBars.top
+            binding.swipeHintCard.layoutParams = hintLayoutParams
+
+            actionLayoutParams.bottomMargin = initialActionBottomMargin + systemBars.bottom
+            binding.actionCard.layoutParams = actionLayoutParams
+
             insets
         }
+
+        ViewCompat.requestApplyInsets(binding.root)
     }
 
     private fun setupSwipeHint() {
