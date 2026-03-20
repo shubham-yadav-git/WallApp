@@ -25,36 +25,34 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       
-      - name: Decode Keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      - name: Decode Keystore (if available)
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore.jks
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "Keystore found, decoding..."
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore.jks
+            echo "KEYSTORE_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "No keystore found, will build unsigned"
+            echo "KEYSTORE_EXISTS=false" >> $GITHUB_ENV
+          fi
       
-      - name: Build Release AAB (Signed)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      - name: Build Release AAB
         run: ./gradlew bundleRelease --stacktrace
         env:
+          CI: true
           KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       
-      - name: Build Release AAB (Unsigned)
-        if: ${{ secrets.KEYSTORE_BASE64 == '' }}
-        run: ./gradlew bundleRelease --stacktrace
-      
-      - name: Build Release APK (Signed)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      - name: Build Release APK
         run: ./gradlew assembleRelease --stacktrace
         env:
+          CI: true
           KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      
-      - name: Build Release APK (Unsigned)
-        if: ${{ secrets.KEYSTORE_BASE64 == '' }}
-        run: ./gradlew assembleRelease --stacktrace
       
       - name: Get version from tag
         id: get_version

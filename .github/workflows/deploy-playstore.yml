@@ -43,6 +43,7 @@ jobs:
       - name: Build Release AAB
         run: ./gradlew bundleRelease --stacktrace
         env:
+          CI: true
           KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

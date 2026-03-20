@@ -104,9 +104,11 @@ Your key password (might be the same as keystore password)
 
 #### 5. **PLAY_STORE_SERVICE_ACCOUNT_JSON**
 
-You need a Google Play Console service account:
+You need a Google Play Console service account.
 
-**Step-by-step:**
+**📖 See detailed guide**: `PLAY_STORE_SERVICE_ACCOUNT_SETUP.md` for complete step-by-step instructions with screenshots references and troubleshooting.
+
+**Quick version:**
 
 1. Go to [Google Play Console](https://play.google.com/console)
 2. Select your app → **Setup** → **API access**
@@ -116,7 +118,8 @@ You need a Google Play Console service account:
    - Service Account User
 6. Create a JSON key for this service account
 7. Download the JSON file
-8. Convert it to base64:
+8. Grant permissions in Play Console (Manage releases)
+9. Convert it to base64:
 ```bash
 base64 -i /path/to/service-account.json | pbcopy
 ```
