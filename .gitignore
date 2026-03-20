@@ -12,3 +12,13 @@
 /captures
 .externalNativeBuild
 .cxx
+
+# Temporary documentation files (use .github/CLEANUP_SUMMARY.md for reference)
+*_FIX*.md
+*_COMPLETE.md
+*_SUMMARY.md
+VERSION_BUMPED*.md
+*_ERROR*.md
+*_STATE*.md
+DEPLOY_SUMMARY.md
+
