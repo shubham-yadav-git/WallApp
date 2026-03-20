@@ -84,8 +84,6 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEYSTORE_TYPE: ${{ env.KEYSTORE_TYPE }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       
       - name: Build Release APK (Unsigned)
         if: steps.check_secrets.outputs.has_keystore == 'false'
