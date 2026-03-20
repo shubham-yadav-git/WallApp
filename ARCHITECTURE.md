@@ -1,0 +1,164 @@
+# 🚀 WallApp Automated Deployment Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         YOUR LOCAL MACHINE                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. Make code changes                                              │
+│  2. Update version in app/build.gradle                             │
+│  3. Commit: git commit -m "..."                                    │
+│  4. Tag:    git tag v1.2.1                                         │
+│  5. Push:   git push origin v1.2.1                                 │
+│                                                                     │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           │ Git Push
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         GITHUB REPOSITORY                           │
+│                 github.com/shubham-yadav-git/WallApp                │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+         ┌─────────────────┼─────────────────┐
+         │                 │                 │
+         ▼                 ▼                 ▼
+┌────────────────┐ ┌──────────────┐ ┌─────────────────┐
+│  WORKFLOW #1   │ │ WORKFLOW #2  │ │  WORKFLOW #3    │
+│                │ │              │ │                 │
+│  Build Check   │ │Release Build │ │ Play Store      │
+│                │ │              │ │ Deploy          │
+├────────────────┤ ├──────────────┤ ├─────────────────┤
+│                │ │              │ │                 │
+│ Trigger:       │ │ Trigger:     │ │ Trigger:        │
+│ • Push to      │ │ • Git Tags   │ │ • Git Tags      │
+│   main/develop │ │   (v*.*.*)   │ │   (v*.*.*)      │
+│                │ │ • Manual     │ │ • Manual        │
+│                │ │              │ │                 │
+│ Actions:       │ │ Actions:     │ │ Actions:        │
+│ ✓ Setup Java21 │ │ ✓ Setup Java │ │ ✓ Setup Java    │
+│ ✓ Build Debug  │ │ ✓ Sign AAB   │ │ ✓ Sign AAB      │
+│ ✓ Save APK     │ │ ✓ Sign APK   │ │ ✓ Upload to     │
+│   (7 days)     │ │ ✓ GitHub     │ │   Play Store    │
+│                │ │   Release    │ │ ✓ Save mapping  │
+│                │ │ ✓ Save (30d) │ │                 │
+│                │ │              │ │                 │
+│ Needs:         │ │ Needs:       │ │ Needs:          │
+│ • Nothing! ✅  │ │ • Keystore*  │ │ • Keystore      │
+│                │ │   secrets    │ │   secrets       │
+│                │ │              │ │ • Play Console  │
+│                │ │              │ │   API key       │
+└────────┬───────┘ └──────┬───────┘ └────────┬────────┘
+         │                │                  │
+         │                │                  │
+         ▼                ▼                  ▼
+┌────────────────┐ ┌──────────────┐ ┌─────────────────┐
+│                │ │              │ │                 │
+│  Result:       │ │  Result:     │ │  Result:        │
+│                │ │              │ │                 │
+│  ✓ Build OK    │ │  ✓ app.aab   │ │  ✓ App on       │
+│    indicator   │ │  ✓ app.apk   │ │    Play Store   │
+│                │ │  ✓ Downloads │ │    (internal/   │
+│  View:         │ │    in         │ │     beta/prod)  │
+│  GitHub        │ │    Releases  │ │                 │
+│  Actions tab   │ │              │ │  ✓ Mapping file │
+│                │ │              │ │    saved        │
+└────────────────┘ └──────────────┘ └─────────────────┘
+
+* Optional - works unsigned too
+```
+
+## 📊 Decision Tree: Which Workflow When?
+
+```
+START
+  │
+  ├─ Just pushing code changes?
+  │  └─> Workflow #1 runs automatically
+  │      • Validates your build
+  │      • No action needed
+  │
+  ├─ Want to create a release for GitHub/testing?
+  │  └─> Create git tag → Workflow #2 runs
+  │      • git tag v1.2.1
+  │      • git push origin v1.2.1
+  │      • Get signed APK/AAB in Releases
+  │
+  └─ Ready to publish to Play Store?
+     └─> Create git tag → Workflow #3 runs
+         • git tag v1.3.0
+         • git push origin v1.3.0
+         • App uploads to Play Store automatically!
+```
+
+## 🔄 Typical Development Cycle
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Week 1-2: Development                                       │
+├─────────────────────────────────────────────────────────────┤
+│ • Code features                                             │
+│ • Push to GitHub → Workflow #1 validates builds ✓           │
+│ • Fix any issues                                            │
+│ • Repeat                                                    │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│ End of Sprint: Internal Release                             │
+├─────────────────────────────────────────────────────────────┤
+│ • Update version: v1.2.1                                    │
+│ • Create tag: git tag v1.2.1                                │
+│ • Push: git push origin v1.2.1                              │
+│ • Workflow #3 → Uploads to Play Store (internal track) ✓    │
+│ • Test with team                                            │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Week 3: Beta Testing                                        │
+├─────────────────────────────────────────────────────────────┤
+│ • Fix bugs                                                  │
+│ • Update version: v1.2.2                                    │
+│ • Tag & push                                                │
+│ • Workflow #3 → Beta track ✓                                │
+│ • Get user feedback                                         │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Week 4: Production Release                                  │
+├─────────────────────────────────────────────────────────────┤
+│ • Final polish                                              │
+│ • Update version: v1.3.0                                    │
+│ • Tag & push                                                │
+│ • Workflow #3 → Production track ✓                          │
+│ • App goes live! 🎉                                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 🎯 Key Benefits
+
+| Before (Manual) | After (Automated) |
+|----------------|-------------------|
+| Build locally | ✅ Builds on GitHub |
+| Export signed AAB | ✅ Auto-signed |
+| Download from Android Studio | ✅ Available in Releases |
+| Open Play Console | ✅ Auto-uploaded |
+| Upload manually | ✅ Select track automatically |
+| Update release notes | ✅ Can be automated |
+| **Time: ~20-30 minutes** | **Time: ~30 seconds** |
+
+## 💰 Cost Analysis
+
+| Service | Free Tier | Your Usage | Cost |
+|---------|-----------|------------|------|
+| GitHub Actions | 2,000 min/month | ~10 min/build | **$0** |
+| GitHub Releases | Unlimited | All releases | **$0** |
+| Play Console API | Free | Unlimited | **$0** |
+| **Total** | | | **$0/month** |
+
+---
+
+**Summary**: Save ~20 minutes per release, $0 cost, fully automated! 🚀
+

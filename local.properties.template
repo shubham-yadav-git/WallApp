@@ -1,0 +1,24 @@
+# Local Signing Configuration (Optional)
+# This file is used for signing releases locally (not in CI/CD)
+#
+# IMPORTANT: This file should be in .gitignore (already is by default)
+# NEVER commit this file to version control!
+
+## Uncomment and fill in your keystore details for local release builds:
+
+# RELEASE_STORE_FILE=/path/to/your/keystore.jks
+# RELEASE_STORE_PASSWORD=your_keystore_password
+# RELEASE_KEY_ALIAS=your_key_alias
+# RELEASE_KEY_PASSWORD=your_key_password
+
+## Example:
+# RELEASE_STORE_FILE=/Users/shubhamy/keystores/wallapp-release.jks
+# RELEASE_STORE_PASSWORD=mySecurePassword123
+# RELEASE_KEY_ALIAS=wallapp
+# RELEASE_KEY_PASSWORD=mySecurePassword123
+
+## Note:
+## - For CI/CD (GitHub Actions), secrets are configured in GitHub settings
+## - This file is only for local development builds
+## - The build.gradle is already configured to read from these properties
+
