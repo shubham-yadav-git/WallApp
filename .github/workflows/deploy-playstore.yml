@@ -37,6 +37,14 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore-original
           
+          # Check if decode was successful (file is not empty)
+          if [ ! -s $GITHUB_WORKSPACE/keystore-original ]; then
+            echo "❌ Error: Keystore decode failed - file is empty"
+            echo "Please configure KEYSTORE_BASE64 secret in GitHub repository settings"
+            echo "Go to: Settings → Secrets and variables → Actions → New repository secret"
+            exit 1
+          fi
+          
           # Detect keystore type and convert to JKS if needed
           if file $GITHUB_WORKSPACE/keystore-original | grep -q "Java KeyStore"; then
             echo "Keystore is already in JKS format"

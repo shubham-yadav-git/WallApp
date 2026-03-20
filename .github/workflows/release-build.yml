@@ -28,16 +28,25 @@ jobs:
       - name: Check for signing secrets
         id: check_secrets
         run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ] && [ "${{ secrets.KEYSTORE_BASE64 }}" != "" ]; then
             echo "has_keystore=true" >> $GITHUB_OUTPUT
+            echo "Keystore secret found"
           else
             echo "has_keystore=false" >> $GITHUB_OUTPUT
+            echo "No keystore secret configured - will build unsigned"
           fi
       
       - name: Decode Keystore
         if: steps.check_secrets.outputs.has_keystore == 'true'
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore-original
+          
+          # Check if decode was successful (file is not empty)
+          if [ ! -s $GITHUB_WORKSPACE/keystore-original ]; then
+            echo "Error: Keystore decode failed - file is empty"
+            echo "Please check your KEYSTORE_BASE64 secret"
+            exit 1
+          fi
           
           # Detect keystore type and convert to JKS if needed
           if file $GITHUB_WORKSPACE/keystore-original | grep -q "Java KeyStore"; then
