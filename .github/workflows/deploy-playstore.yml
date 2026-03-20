@@ -88,8 +88,7 @@ jobs:
           track: ${{ inputs.track || 'internal' }}
           status: completed
           inAppUpdatePriority: 2
-          mappingFile: app/build/outputs/mapping/release/mapping.txt
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
