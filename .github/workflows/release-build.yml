@@ -25,13 +25,22 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       
+      - name: Check for signing secrets
+        id: check_secrets
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "has_keystore=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_keystore=false" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Decode Keystore
-        if: secrets.KEYSTORE_BASE64 != ''
+        if: steps.check_secrets.outputs.has_keystore == 'true'
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore.jks
       
       - name: Build Release AAB (Signed)
-        if: secrets.KEYSTORE_BASE64 != ''
+        if: steps.check_secrets.outputs.has_keystore == 'true'
         run: ./gradlew bundleRelease --stacktrace
         env:
           KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
@@ -40,11 +49,11 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       
       - name: Build Release AAB (Unsigned)
-        if: secrets.KEYSTORE_BASE64 == ''
+        if: steps.check_secrets.outputs.has_keystore == 'false'
         run: ./gradlew bundleRelease --stacktrace
       
       - name: Build Release APK (Signed)
-        if: secrets.KEYSTORE_BASE64 != ''
+        if: steps.check_secrets.outputs.has_keystore == 'true'
         run: ./gradlew assembleRelease --stacktrace
         env:
           KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
@@ -53,7 +62,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       
       - name: Build Release APK (Unsigned)
-        if: secrets.KEYSTORE_BASE64 == ''
+        if: steps.check_secrets.outputs.has_keystore == 'false'
         run: ./gradlew assembleRelease --stacktrace
       
       - name: Get version from tag
