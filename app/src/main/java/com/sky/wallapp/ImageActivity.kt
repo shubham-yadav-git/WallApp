@@ -23,9 +23,12 @@ import android.view.animation.LinearInterpolator
 import android.view.animation.AnimationUtils
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.Insets
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.button.MaterialButton
 import com.bumptech.glide.Glide
 import com.google.android.play.core.review.ReviewManager
@@ -99,6 +102,7 @@ class ImageActivity : AppCompatActivity() {
 
         hydrateSwipeState(savedInstanceState)
         setupSwipeGesture()
+        applySystemBarInsets()
         setupSwipeHint()
         analyticsTracker.logEvent("wallpaper_detail_open", mapOf("title" to titlev))
         renderCurrentWallpaper()
@@ -153,6 +157,11 @@ class ImageActivity : AppCompatActivity() {
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean = true
 
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                toggleFavoriteFromDoubleTap()
+                return true
+            }
+
             override fun onFling(
                 e1: MotionEvent?,
                 e2: MotionEvent,
@@ -179,6 +188,39 @@ class ImageActivity : AppCompatActivity() {
 
         binding.imageView.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
+        }
+    }
+
+    private fun toggleFavoriteFromDoubleTap() {
+        val nowFavorite = FavoritesStore.toggleFavorite(this, titlev, imageUrl)
+        performActionHaptic()
+        analyticsTracker.logEvent(
+            if (nowFavorite) "favorite_added" else "favorite_removed",
+            mapOf(
+                "title" to titlev,
+                "source" to swipeSource,
+                "trigger" to "double_tap"
+            )
+        )
+        Toast.makeText(
+            this,
+            if (nowFavorite) getString(R.string.favorite_added) else getString(R.string.favorite_removed),
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun applySystemBarInsets() {
+        val initialTopPadding = binding.toolbar.paddingTop
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.toolbar) { view, insets ->
+            val systemBars: Insets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(
+                view.paddingLeft,
+                initialTopPadding + systemBars.top,
+                view.paddingRight,
+                view.paddingBottom
+            )
+            insets
         }
     }
 

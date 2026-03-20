@@ -820,6 +820,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         
         if (isFavoritesMode) {
             loadFavorites()
+        } else {
+            // Favorites can change in ImageActivity; rebind rows so heart state stays in sync.
+            binding.appBarMain.contentMain.recyclerView.adapter?.notifyDataSetChanged()
         }
     }
 
