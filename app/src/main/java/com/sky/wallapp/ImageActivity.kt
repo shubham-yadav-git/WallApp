@@ -122,6 +122,10 @@ class ImageActivity : AppCompatActivity() {
             }
         }
 
+        binding.btnFavorite.setOnClickListener {
+            toggleFavorite(trigger = "button", showHeartOverlay = false)
+        }
+
         binding.btnShare.setOnClickListener {
             shareImage()
         }
@@ -195,19 +199,23 @@ class ImageActivity : AppCompatActivity() {
     }
 
     private fun toggleFavoriteFromDoubleTap() {
+        toggleFavorite(trigger = "double_tap", showHeartOverlay = true)
+    }
+
+    private fun toggleFavorite(trigger: String, showHeartOverlay: Boolean) {
         val nowFavorite = FavoritesStore.toggleFavorite(this, titlev, imageUrl)
-        setResult(
-            RESULT_OK,
-            Intent().putExtra(EXTRA_FAVORITES_CHANGED, true)
-        )
+        setResult(RESULT_OK, Intent().putExtra(EXTRA_FAVORITES_CHANGED, true))
         performActionHaptic()
-        showDoubleTapHeartFeedback(nowFavorite)
+        if (showHeartOverlay) {
+            showDoubleTapHeartFeedback(nowFavorite)
+        }
+        updateFavoriteButtonState(nowFavorite)
         analyticsTracker.logEvent(
             if (nowFavorite) "favorite_added" else "favorite_removed",
             mapOf(
                 "title" to titlev,
                 "source" to swipeSource,
-                "trigger" to "double_tap"
+                "trigger" to trigger
             )
         )
         Toast.makeText(
@@ -215,6 +223,21 @@ class ImageActivity : AppCompatActivity() {
             if (nowFavorite) getString(R.string.favorite_added) else getString(R.string.favorite_removed),
             Toast.LENGTH_SHORT
         ).show()
+    }
+
+    private fun updateFavoriteButtonState(forceState: Boolean? = null) {
+        val isFavorite = forceState ?: FavoritesStore.isFavorite(this, imageUrl)
+        binding.btnFavorite.isSelected = isFavorite
+        binding.btnFavorite.isActivated = isFavorite
+        binding.btnFavorite.alpha = if (isFavorite) 1f else 0.72f
+        binding.btnFavorite.contentDescription = if (isFavorite) {
+            getString(R.string.favorited)
+        } else {
+            getString(R.string.favorite)
+        }
+        binding.btnFavorite.setIconResource(
+            if (isFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
+        )
     }
 
     private fun showDoubleTapHeartFeedback(isAddedToFavorites: Boolean) {
@@ -253,8 +276,10 @@ class ImageActivity : AppCompatActivity() {
     private fun applySystemBarInsets() {
         val initialTopPadding = binding.toolbar.paddingTop
         val hintLayoutParams = binding.swipeHintCard.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
+        val favoriteLayoutParams = binding.btnFavorite.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
         val actionLayoutParams = binding.actionCard.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
         val initialHintTopMargin = hintLayoutParams.topMargin
+        val initialFavoriteTopMargin = favoriteLayoutParams.topMargin
         val initialActionBottomMargin = actionLayoutParams.bottomMargin
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
@@ -263,6 +288,9 @@ class ImageActivity : AppCompatActivity() {
 
             hintLayoutParams.topMargin = initialHintTopMargin + systemBars.top
             binding.swipeHintCard.layoutParams = hintLayoutParams
+
+            favoriteLayoutParams.topMargin = initialFavoriteTopMargin + systemBars.top
+            binding.btnFavorite.layoutParams = favoriteLayoutParams
 
             actionLayoutParams.bottomMargin = initialActionBottomMargin + systemBars.bottom
             binding.actionCard.layoutParams = actionLayoutParams
@@ -417,6 +445,7 @@ class ImageActivity : AppCompatActivity() {
     }
 
     private fun renderCurrentWallpaper() {
+        updateFavoriteButtonState()
         Glide.with(this)
             .load(imageUrl)
             .into(binding.imageView)
