@@ -76,6 +76,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setSupportActionBar(binding.appBarMain.toolbar)
 
         firebaseDatabase = FirebaseDatabase.getInstance()
+        android.util.Log.d(TAG, "🔥 Firebase Database initialized: ${firebaseDatabase?.reference?.toString()}")
+        
         analyticsTracker = AnalyticsTracker(FirebaseAnalytics.getInstance(this))
         appUpdateManager = AppUpdateManagerFactory.create(this)
         favoritesSortMode = readFavoritesSortMode()
@@ -157,18 +159,25 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun loadCategoriesToDrawer() {
-        firebaseDatabase?.getReference("categories")
-            ?.addValueEventListener(object : ValueEventListener {
+        val categoriesRef = firebaseDatabase?.getReference("categories")
+        android.util.Log.d(TAG, "🔄 Loading categories from: ${categoriesRef?.toString()}")
+        
+        categoriesRef?.addValueEventListener(object : ValueEventListener {
 
                 override fun onDataChange(snapshot: DataSnapshot) {
+                    android.util.Log.d(TAG, "✅ Categories data received. Children count: ${snapshot.childrenCount}")
+                    
                     categoriesList.clear()
 
                     snapshot.children.forEach { postSnapshot ->
                         postSnapshot.getValue(Category::class.java)?.let {
+                            android.util.Log.d(TAG, "  📁 Category: ${it.name} -> ${it.path}")
                             categoriesList.add(it)
                         }
                     }
 
+                    android.util.Log.d(TAG, "📊 Total categories loaded: ${categoriesList.size}")
+                    
                     // ✅ Load trending AFTER categories
                     if (isTrendingMode) {
                         loadTrending()
@@ -205,7 +214,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 }
 
                 override fun onCancelled(error: DatabaseError) {
-                    Toast.makeText(this@MainActivity, "Failed to load categories", Toast.LENGTH_SHORT).show()
+                    android.util.Log.e(TAG, "❌ Failed to load categories: ${error.message}")
+                    android.util.Log.e(TAG, "   Code: ${error.code}, Details: ${error.details}")
+                    Toast.makeText(this@MainActivity, "Failed to load categories: ${error.message}", Toast.LENGTH_LONG).show()
                 }
             })
     }
@@ -218,27 +229,34 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         showLoading()
         invalidateOptionsMenu()
         analyticsTracker.logEvent("open_trending")
+        android.util.Log.d(TAG, "🔄 Loading trending wallpapers...")
 
         adapter?.stopListening()
         adapter = null
 
         if (categoriesList.isEmpty()) {
+            android.util.Log.w(TAG, "⚠️ No categories available for trending")
             showEmpty(getString(R.string.empty_wallpapers))
             return
         }
 
+        android.util.Log.d(TAG, "📊 Processing ${categoriesList.size} categories for trending")
         val allPhotos = mutableListOf<Model>()
         var categoriesProcessed = 0
         val totalCategories = categoriesList.size
 
         for (category in categoriesList) {
             val path = category.path ?: continue
+            android.util.Log.d(TAG, "  🔍 Fetching from path: $path")
 
             firebaseDatabase?.getReference(path)
                 ?.limitToFirst(20)
                 ?.addListenerForSingleValueEvent(object : ValueEventListener {
 
                     override fun onDataChange(snapshot: DataSnapshot) {
+                        val itemCount = snapshot.childrenCount
+                        android.util.Log.d(TAG, "    ✅ $path: ${itemCount} items")
+                        
                         for (postSnapshot in snapshot.children) {
                             val model = postSnapshot.getValue(Model::class.java)
                             if (model != null) {
@@ -247,8 +265,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                         }
 
                         categoriesProcessed++
+                        android.util.Log.d(TAG, "  📈 Progress: $categoriesProcessed/$totalCategories categories")
 
                         if (categoriesProcessed == totalCategories) {
+                            android.util.Log.d(TAG, "✅ Trending complete. Total photos: ${allPhotos.size}")
                             fullList.clear()
                             fullList.addAll(allPhotos)
                             bindStaticList(allPhotos.shuffled())
@@ -260,6 +280,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     }
 
                     override fun onCancelled(error: DatabaseError) {
+                        android.util.Log.e(TAG, "    ❌ Error loading $path: ${error.message}")
                         categoriesProcessed++
                     }
                 })
@@ -698,6 +719,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     companion object {
+        private const val TAG = "MainActivity"
         private const val PREFS_NAME = "wallapp_prefs"
         private const val KEY_FAVORITES_SORT_MODE = "favorites_sort_mode"
         private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
