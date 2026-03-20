@@ -22,7 +22,7 @@
         android:alpha="0"
         android:importantForAccessibility="no"
         android:src="@drawable/ic_favorite_24"
-        android:tint="@color/primary"
+        app:tint="@color/primary"
         android:visibility="gone" />
 
     <com.google.android.material.appbar.AppBarLayout

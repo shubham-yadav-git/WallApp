@@ -568,6 +568,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         if (model.image.isNullOrBlank()) {
             holder.favoriteButton.isEnabled = false
             holder.favoriteButton.alpha = 0.5f
+            holder.favoriteButton.isSelected = false
+            holder.favoriteButton.isActivated = false
             holder.favoriteButton.setImageResource(R.drawable.ic_favorite_border_24)
             return
         }
@@ -575,6 +577,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         holder.favoriteButton.isEnabled = true
         holder.favoriteButton.alpha = 1f
         val isFavorite = FavoritesStore.isFavorite(this, model.image)
+        holder.favoriteButton.isSelected = isFavorite
+        holder.favoriteButton.isActivated = isFavorite
         holder.favoriteButton.setImageResource(
             if (isFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
         )
@@ -585,6 +589,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             holder.favoriteButton.setImageResource(
                 if (nowFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
             )
+            holder.favoriteButton.isSelected = nowFavorite
+            holder.favoriteButton.isActivated = nowFavorite
 
             // Micro animation for better touch feedback on heart toggle.
             holder.favoriteButton.animate().cancel()
