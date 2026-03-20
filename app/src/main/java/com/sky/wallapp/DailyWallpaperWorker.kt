@@ -1,8 +1,6 @@
 package com.sky.wallapp
 
-import android.app.WallpaperManager
 import android.content.Context
-import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.bumptech.glide.Glide
@@ -35,12 +33,11 @@ class DailyWallpaperWorker(
                 .submit()
                 .get()
 
-            val wallpaperManager = WallpaperManager.getInstance(applicationContext)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                wallpaperManager.setBitmap(bitmap, null, true, WallpaperManager.FLAG_SYSTEM)
-            } else {
-                wallpaperManager.setBitmap(bitmap)
-            }
+            WallpaperApplier.applyBitmap(
+                applicationContext,
+                bitmap,
+                android.app.WallpaperManager.FLAG_SYSTEM
+            )
 
             AutoWallpaperManager.markApplied(applicationContext, nextFavorite.image)
             analyticsTracker.logEvent(

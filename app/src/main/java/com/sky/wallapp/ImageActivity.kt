@@ -4,7 +4,6 @@ import android.Manifest
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
-import android.app.WallpaperManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -467,12 +466,12 @@ class ImageActivity : AppCompatActivity() {
             .create()
 
         dialogView.findViewById<MaterialButton>(R.id.btn_wall_home).setOnClickListener {
-            applyWallpaper(mDrawable.bitmap, WallpaperManager.FLAG_SYSTEM, "set_wallpaper_home", getString(R.string.wallpaper_home_success))
+            applyWallpaper(mDrawable.bitmap, android.app.WallpaperManager.FLAG_SYSTEM, "set_wallpaper_home", getString(R.string.wallpaper_home_success))
             dialog.dismiss()
         }
 
         dialogView.findViewById<MaterialButton>(R.id.btn_wall_lock).setOnClickListener {
-            applyWallpaper(mDrawable.bitmap, WallpaperManager.FLAG_LOCK, "set_wallpaper_lock", getString(R.string.wallpaper_lock_success))
+            applyWallpaper(mDrawable.bitmap, android.app.WallpaperManager.FLAG_LOCK, "set_wallpaper_lock", getString(R.string.wallpaper_lock_success))
             dialog.dismiss()
         }
 
@@ -530,14 +529,9 @@ class ImageActivity : AppCompatActivity() {
         analyticsEvent: String,
         successMessage: String
     ) {
-        val wallpaperManager = WallpaperManager.getInstance(applicationContext)
         Toast.makeText(this@ImageActivity, getString(R.string.wallpaper_setting), Toast.LENGTH_SHORT).show()
         try {
-            if (targetFlag != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                wallpaperManager.setBitmap(bitmap, null, true, targetFlag)
-            } else {
-                wallpaperManager.setBitmap(bitmap)
-            }
+            WallpaperApplier.applyBitmap(this, bitmap, targetFlag)
             performOutcomeHaptic(isSuccess = true)
             Toast.makeText(this, successMessage, Toast.LENGTH_SHORT).show()
             onPositiveAction(analyticsEvent)
