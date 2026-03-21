@@ -37,6 +37,9 @@
     <string name="sort_alphabetical">A-Z</string>
     <string name="set_wallpaper">Set Wallpaper</string>
     <string name="wallpaper_target_subtitle">Choose where you want to apply this wallpaper.</string>
+    <string name="wallpaper_display_mode_title">Wallpaper style</string>
+    <string name="wallpaper_display_mode_fixed">Fixed (recommended) — no horizontal scrolling</string>
+    <string name="wallpaper_display_mode_scrollable">Scrollable — allow launcher panning on home screen</string>
     <string name="wallpaper_target_home">Home screen</string>
     <string name="wallpaper_target_lock">Lock screen</string>
     <string name="wallpaper_target_both">Home + Lock screen</string>

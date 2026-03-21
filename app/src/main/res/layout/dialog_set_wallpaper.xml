@@ -24,6 +24,35 @@
         android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
         android:textColor="@color/onSurfaceVariant" />
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/wallpaper_display_mode_title"
+        android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+        android:textColor="@color/onSurface" />
+
+    <RadioGroup
+        android:id="@+id/wallpaper_display_mode_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
+
+        <RadioButton
+            android:id="@+id/radio_wallpaper_fixed"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/wallpaper_display_mode_fixed" />
+
+        <RadioButton
+            android:id="@+id/radio_wallpaper_scrollable"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/wallpaper_display_mode_scrollable" />
+    </RadioGroup>
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_wall_home"
         style="@style/Widget.Material3.Button.TonalButton"

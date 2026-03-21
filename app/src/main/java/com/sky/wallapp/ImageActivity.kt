@@ -22,6 +22,7 @@ import android.view.animation.LinearInterpolator
 import android.view.animation.AnimationUtils
 import android.view.animation.AccelerateInterpolator
 import android.widget.Toast
+import android.widget.RadioButton
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.Insets
 import androidx.core.app.ActivityCompat
@@ -465,18 +466,43 @@ class ImageActivity : AppCompatActivity() {
             .setView(dialogView)
             .create()
 
+        val fixedModeRadio = dialogView.findViewById<RadioButton>(R.id.radio_wallpaper_fixed)
+        val scrollableModeRadio = dialogView.findViewById<RadioButton>(R.id.radio_wallpaper_scrollable)
+        when (WallpaperApplier.getSavedDisplayMode(this)) {
+            WallpaperApplier.DisplayMode.FIXED -> fixedModeRadio.isChecked = true
+            WallpaperApplier.DisplayMode.SCROLLABLE -> scrollableModeRadio.isChecked = true
+        }
+
         dialogView.findViewById<MaterialButton>(R.id.btn_wall_home).setOnClickListener {
-            applyWallpaper(mDrawable.bitmap, android.app.WallpaperManager.FLAG_SYSTEM, "set_wallpaper_home", getString(R.string.wallpaper_home_success))
+            applyWallpaper(
+                mDrawable.bitmap,
+                android.app.WallpaperManager.FLAG_SYSTEM,
+                "set_wallpaper_home",
+                getString(R.string.wallpaper_home_success),
+                getSelectedDisplayMode(scrollableModeRadio.isChecked)
+            )
             dialog.dismiss()
         }
 
         dialogView.findViewById<MaterialButton>(R.id.btn_wall_lock).setOnClickListener {
-            applyWallpaper(mDrawable.bitmap, android.app.WallpaperManager.FLAG_LOCK, "set_wallpaper_lock", getString(R.string.wallpaper_lock_success))
+            applyWallpaper(
+                mDrawable.bitmap,
+                android.app.WallpaperManager.FLAG_LOCK,
+                "set_wallpaper_lock",
+                getString(R.string.wallpaper_lock_success),
+                getSelectedDisplayMode(scrollableModeRadio.isChecked)
+            )
             dialog.dismiss()
         }
 
         dialogView.findViewById<MaterialButton>(R.id.btn_wall_both).setOnClickListener {
-            applyWallpaper(mDrawable.bitmap, null, "set_wallpaper_both", getString(R.string.wallpaper_both_success))
+            applyWallpaper(
+                mDrawable.bitmap,
+                null,
+                "set_wallpaper_both",
+                getString(R.string.wallpaper_both_success),
+                getSelectedDisplayMode(scrollableModeRadio.isChecked)
+            )
             dialog.dismiss()
         }
 
@@ -527,11 +553,13 @@ class ImageActivity : AppCompatActivity() {
         bitmap: Bitmap,
         targetFlag: Int?,
         analyticsEvent: String,
-        successMessage: String
+        successMessage: String,
+        displayMode: WallpaperApplier.DisplayMode
     ) {
         Toast.makeText(this@ImageActivity, getString(R.string.wallpaper_setting), Toast.LENGTH_SHORT).show()
         try {
-            WallpaperApplier.applyBitmap(this, bitmap, targetFlag)
+            WallpaperApplier.saveDisplayMode(this, displayMode)
+            WallpaperApplier.applyBitmap(this, bitmap, targetFlag, displayMode)
             performOutcomeHaptic(isSuccess = true)
             Toast.makeText(this, successMessage, Toast.LENGTH_SHORT).show()
             onPositiveAction(analyticsEvent)
@@ -539,6 +567,14 @@ class ImageActivity : AppCompatActivity() {
             performOutcomeHaptic(isSuccess = false)
             analyticsTracker.logEvent("set_wallpaper_failed", mapOf("error" to e.message))
             Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun getSelectedDisplayMode(isScrollableSelected: Boolean): WallpaperApplier.DisplayMode {
+        return if (isScrollableSelected) {
+            WallpaperApplier.DisplayMode.SCROLLABLE
+        } else {
+            WallpaperApplier.DisplayMode.FIXED
         }
     }
 
