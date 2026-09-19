@@ -35,10 +35,17 @@ object WallpaperApplier {
             wallpaperManager.suggestDesiredDimensions(preparedBitmap.width, preparedBitmap.height)
         }
 
-        if (targetFlag != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            wallpaperManager.setBitmap(preparedBitmap, null, true, targetFlag)
-        } else {
-            wallpaperManager.setBitmap(preparedBitmap)
+        try {
+            if (targetFlag != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                wallpaperManager.setBitmap(preparedBitmap, null, true, targetFlag)
+            } else {
+                wallpaperManager.setBitmap(preparedBitmap)
+            }
+        } finally {
+            // If we created a new bitmap (composed), recycle it to free memory early
+            if (preparedBitmap != sourceBitmap) {
+                preparedBitmap.recycle()
+            }
         }
     }
 
@@ -80,11 +87,6 @@ object WallpaperApplier {
             return sourceBitmap
         }
 
-        // FIXED uses fit-first composition to reduce perceived zoom while keeping full-canvas fill.
-        if (displayMode == DisplayMode.FIXED) {
-            return createComposedFitBitmap(sourceBitmap, targetWidth, targetHeight)
-        }
-
         return createComposedFitBitmap(sourceBitmap, targetWidth, targetHeight)
     }
 
@@ -93,7 +95,8 @@ object WallpaperApplier {
         targetWidth: Int,
         targetHeight: Int
     ): Bitmap {
-        val output = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        // Use RGB_565 to halve memory usage (wallpapers don't need alpha channel)
+        val output = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.RGB_565)
         val canvas = Canvas(output)
 
         // Subtle fill layer to avoid harsh bars when source aspect differs from target.
@@ -154,4 +157,3 @@ object WallpaperApplier {
         canvas.drawBitmap(bitmap, srcRect, destRect, paint)
     }
 }
-
