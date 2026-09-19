@@ -21,15 +21,19 @@ class DailyWallpaperWorker(
         }
 
         val nextFavorite = AutoWallpaperManager.pickNextFavorite(applicationContext)
-        if (nextFavorite?.image.isNullOrBlank()) {
+        val imageUrl = nextFavorite?.image
+        if (imageUrl.isNullOrBlank()) {
             analyticsTracker.logEvent("auto_wallpaper_skipped", mapOf("reason" to "no_favorites"))
             return@withContext Result.success()
         }
 
+        // Prefer cloudinaryUrl if available as a backup for 402 quota errors
+        val urlToLoad = if (!nextFavorite.cloudinaryUrl.isNullOrBlank()) nextFavorite.cloudinaryUrl else nextFavorite.image
+
         try {
             val bitmap = Glide.with(applicationContext)
                 .asBitmap()
-                .load(nextFavorite.image)
+                .load(urlToLoad)
                 .submit()
                 .get()
 
@@ -57,6 +61,3 @@ class DailyWallpaperWorker(
         }
     }
 }
-
-
-

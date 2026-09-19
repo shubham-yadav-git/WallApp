@@ -103,10 +103,12 @@ class CategoryAdapter(
                         .limitToFirst(1)
                         .addListenerForSingleValueEvent(object : ValueEventListener {
                             override fun onDataChange(snapshot: DataSnapshot) {
-                                val imageUrl = snapshot.children
+                                val model = snapshot.children
                                     .firstOrNull()
                                     ?.getValue(Model::class.java)
-                                    ?.image
+                                
+                                // Prefer cloudinaryUrl (backup) over the primary image URL to avoid 402 quota errors
+                                val imageUrl = if (!model?.cloudinaryUrl.isNullOrBlank()) model?.cloudinaryUrl else model?.image
 
                                 firstImageCache[path] = imageUrl
 

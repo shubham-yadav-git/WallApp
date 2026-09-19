@@ -56,6 +56,7 @@ class ImageActivity : AppCompatActivity() {
     private lateinit var binding: ActivityImageBinding
     private var titlev: String? = null
     private var imageUrl: String? = null
+    private var displayUrl: String? = null
     private var currentIndex: Int = -1
     private var swipeItems: List<Model> = emptyList()
     private var swipeSource: String = "detail"
@@ -72,10 +73,12 @@ class ImageActivity : AppCompatActivity() {
         const val EXTRA_SWIPE_SESSION_ID = "swipe_session_id"
         const val EXTRA_SWIPE_INDEX = "swipe_index"
         const val EXTRA_FAVORITES_CHANGED = "favorites_changed"
+        const val EXTRA_CLOUDINARY_URL = "cloudinaryUrl"
 
         private const val STATE_CURRENT_INDEX = "state_current_index"
         private const val STATE_TITLE = "state_title"
         private const val STATE_IMAGE_URL = "state_image_url"
+        private const val STATE_DISPLAY_URL = "state_display_url"
         private const val STATE_SWIPE_COUNT = "state_swipe_count"
         private const val PREFS_SWIPE_HINT = "swipe_hint_prefs"
         private const val KEY_SWIPE_HINT_SHOWN = "swipe_hint_shown"
@@ -146,12 +149,15 @@ class ImageActivity : AppCompatActivity() {
         } else {
             titlev = intent.getStringExtra("title")
             imageUrl = intent.getStringExtra("image")
+            val backup = intent.getStringExtra(EXTRA_CLOUDINARY_URL)
+            displayUrl = if (!backup.isNullOrBlank()) backup else imageUrl
         }
 
         if (savedInstanceState != null) {
             currentIndex = savedInstanceState.getInt(STATE_CURRENT_INDEX, currentIndex)
             titlev = savedInstanceState.getString(STATE_TITLE, titlev)
             imageUrl = savedInstanceState.getString(STATE_IMAGE_URL, imageUrl)
+            displayUrl = savedInstanceState.getString(STATE_DISPLAY_URL, displayUrl)
             swipeCount = savedInstanceState.getInt(STATE_SWIPE_COUNT, swipeCount)
             if (swipeItems.isNotEmpty()) {
                 currentIndex = currentIndex.coerceIn(0, swipeItems.lastIndex)
@@ -434,7 +440,11 @@ class ImageActivity : AppCompatActivity() {
         renderCurrentWallpaper()
         analyticsTracker.logEvent(
             "wallpaper_swipe_previous",
-            mapOf("source" to swipeSource, "index" to currentIndex.toString(), "title" to titlev)
+            mapOf(
+                "source" to swipeSource,
+                "index" to currentIndex.toString(),
+                "title" to titlev
+            )
         )
         return true
     }
@@ -442,12 +452,13 @@ class ImageActivity : AppCompatActivity() {
     private fun applyModel(model: Model) {
         titlev = model.title
         imageUrl = model.image
+        displayUrl = if (!model.cloudinaryUrl.isNullOrBlank()) model.cloudinaryUrl else model.image
     }
 
     private fun renderCurrentWallpaper() {
         updateFavoriteButtonState()
         Glide.with(this)
-            .load(imageUrl)
+            .load(displayUrl)
             .into(binding.imageView)
 
         val animFadeIn = AnimationUtils.loadAnimation(applicationContext, R.anim.fade_in)
@@ -707,6 +718,7 @@ class ImageActivity : AppCompatActivity() {
         outState.putInt(STATE_CURRENT_INDEX, currentIndex)
         outState.putString(STATE_TITLE, titlev)
         outState.putString(STATE_IMAGE_URL, imageUrl)
+        outState.putString(STATE_DISPLAY_URL, displayUrl)
         outState.putInt(STATE_SWIPE_COUNT, swipeCount)
         super.onSaveInstanceState(outState)
     }

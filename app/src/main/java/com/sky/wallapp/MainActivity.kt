@@ -175,7 +175,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
                 holder.textView.text = model.title
-                Glide.with(applicationContext).load(model.image).into(holder.imageView)
+                // Use cloudinaryUrl if available, otherwise use image
+                val urlToLoad = if (!model.cloudinaryUrl.isNullOrBlank()) model.cloudinaryUrl else model.image
+                Glide.with(applicationContext).load(urlToLoad).into(holder.imageView)
                 bindFavoriteUi(holder, model, "category")
 
                 holder.itemView.setOnClickListener {
@@ -364,8 +366,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     val model = items[position]
 
                     holder.textView.text = model.title
+                    // Use cloudinaryUrl if available, otherwise use image
+                    val urlToLoad = if (!model.cloudinaryUrl.isNullOrBlank()) model.cloudinaryUrl else model.image
                     Glide.with(applicationContext)
-                        .load(model.image)
+                        .load(urlToLoad)
                         .into(holder.imageView)
                     bindFavoriteUi(
                         holder,
@@ -432,7 +436,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
             override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
                 holder.textView.text = model.title
-                Glide.with(applicationContext).load(model.image).into(holder.imageView)
+                // Use cloudinaryUrl if available, otherwise use image
+                val urlToLoad = if (!model.cloudinaryUrl.isNullOrBlank()) model.cloudinaryUrl else model.image
+                Glide.with(applicationContext).load(urlToLoad).into(holder.imageView)
                 bindFavoriteUi(holder, model, "search_category")
 
                 holder.itemView.setOnClickListener {
@@ -743,6 +749,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val intent = Intent(this@MainActivity, ImageActivity::class.java).apply {
             putExtra("image", model.image)
             putExtra("title", model.title)
+            // Pass cloudinaryUrl to detail activity if it exists
+            if (!model.cloudinaryUrl.isNullOrBlank()) {
+                putExtra("cloudinaryUrl", model.cloudinaryUrl)
+            }
         }
 
         if (feedContext != null) {
