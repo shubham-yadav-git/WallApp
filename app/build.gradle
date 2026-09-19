@@ -15,6 +15,10 @@ android {
         versionName "1.2.6"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Default to AdMob Test IDs for development
+        manifestPlaceholders = [admobAppId: "ca-app-pub-3940256099942544~3347511713"]
+        resValue "string", "banner_ad_unit_id", "ca-app-pub-3940256099942544/6300978111"
     }
 
     packaging {
@@ -52,13 +56,21 @@ android {
 
     buildTypes {
         release {
-            // Only sign if signingConfig is properly configured
+            // Use Production AdMob IDs for release builds (including GitHub Actions push to master)
+            manifestPlaceholders = [admobAppId: "ca-app-pub-9842479759097106~1672800275"]
+            resValue "string", "banner_ad_unit_id", "ca-app-pub-9842479759097106/9293400570"
+
             if (signingConfigs.release.storeFile != null) {
                 signingConfig signingConfigs.release
             }
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            // Inherits Test IDs from defaultConfig
+            applicationIdSuffix ".debug"
+            debuggable true
         }
     }
     compileOptions {
