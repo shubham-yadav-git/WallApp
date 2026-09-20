@@ -108,7 +108,12 @@ class CategoryAdapter(
                                     ?.getValue(Model::class.java)
                                 
                                 // Prefer cloudinaryUrl (backup) over the primary image URL to avoid 402 quota errors
-                                val imageUrl = if (!model?.cloudinaryUrl.isNullOrBlank()) model?.cloudinaryUrl else model?.image
+                                // Fixed: Removed unnecessary safe call on non-null receiver 'model' if checked
+                                val imageUrl = if (model != null && !model.cloudinaryUrl.isNullOrBlank()) {
+                                    model.cloudinaryUrl
+                                } else {
+                                    model?.image
+                                }
 
                                 firstImageCache[path] = imageUrl
 

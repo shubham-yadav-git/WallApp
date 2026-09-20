@@ -369,11 +369,16 @@ class ImageActivity : AppCompatActivity() {
 
     private fun showNextWallpaper(): Boolean {
         if (swipeItems.isEmpty()) return false
+        
+        // Auto-dismiss hint on first successful swipe
+        if (binding.swipeHintCard.visibility == View.VISIBLE) {
+            markSwipeHintSeen()
+        }
+
         if (currentIndex >= swipeItems.lastIndex) {
             if (ENABLE_CIRCULAR_SWIPE) {
                 currentIndex = 0
                 swipeCount += 1
-                markSwipeHintSeen()
                 applyModel(swipeItems[currentIndex])
                 renderCurrentWallpaper()
                 analyticsTracker.logEvent(
@@ -396,7 +401,6 @@ class ImageActivity : AppCompatActivity() {
 
         currentIndex += 1
         swipeCount += 1
-        markSwipeHintSeen()
         applyModel(swipeItems[currentIndex])
         renderCurrentWallpaper()
         analyticsTracker.logEvent(
@@ -408,11 +412,16 @@ class ImageActivity : AppCompatActivity() {
 
     private fun showPreviousWallpaper(): Boolean {
         if (swipeItems.isEmpty()) return false
+
+        // Auto-dismiss hint on first successful swipe
+        if (binding.swipeHintCard.visibility == View.VISIBLE) {
+            markSwipeHintSeen()
+        }
+
         if (currentIndex <= 0) {
             if (ENABLE_CIRCULAR_SWIPE) {
                 currentIndex = swipeItems.lastIndex
                 swipeCount += 1
-                markSwipeHintSeen()
                 applyModel(swipeItems[currentIndex])
                 renderCurrentWallpaper()
                 analyticsTracker.logEvent(
@@ -435,7 +444,6 @@ class ImageActivity : AppCompatActivity() {
 
         currentIndex -= 1
         swipeCount += 1
-        markSwipeHintSeen()
         applyModel(swipeItems[currentIndex])
         renderCurrentWallpaper()
         analyticsTracker.logEvent(

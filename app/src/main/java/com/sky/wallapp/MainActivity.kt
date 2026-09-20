@@ -65,6 +65,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private lateinit var analyticsTracker: AnalyticsTracker
     private lateinit var appUpdateManager: AppUpdateManager
     private var favoritesSortMode = FavoritesSortMode.RECENT
+
+    // Firebase state management to prevent leaks
+    private var categoriesRef: DatabaseReference? = null
+    private var categoriesListener: ValueEventListener? = null
     
     private val installStateUpdatedListener = InstallStateUpdatedListener { state ->
         when (state.installStatus()) {
@@ -204,66 +208,68 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun loadCategoriesToDrawer() {
-        val categoriesRef = firebaseDatabase?.getReference("categories")
+        categoriesRef = firebaseDatabase?.getReference("categories")
         android.util.Log.d(TAG, "🔄 Loading categories from: ${categoriesRef?.toString()}")
         
-        categoriesRef?.addValueEventListener(object : ValueEventListener {
+        categoriesListener = object : ValueEventListener {
 
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    android.util.Log.d(TAG, "✅ Categories data received. Children count: ${snapshot.childrenCount}")
-                    
-                    categoriesList.clear()
+            override fun onDataChange(snapshot: DataSnapshot) {
+                android.util.Log.d(TAG, "✅ Categories data received. Children count: ${snapshot.childrenCount}")
+                
+                categoriesList.clear()
 
-                    snapshot.children.forEach { postSnapshot ->
-                        postSnapshot.getValue(Category::class.java)?.let {
-                            android.util.Log.d(TAG, "  📁 Category: ${it.name} -> ${it.path}")
-                            categoriesList.add(it)
-                        }
+                snapshot.children.forEach { postSnapshot ->
+                    postSnapshot.getValue(Category::class.java)?.let {
+                        android.util.Log.d(TAG, "  📁 Category: ${it.name} -> ${it.path}")
+                        categoriesList.add(it)
                     }
+                }
 
-                    android.util.Log.d(TAG, "📊 Total categories loaded: ${categoriesList.size}")
-                    
-                    // ✅ Load trending AFTER categories
-                    if (isTrendingMode) {
-                        loadTrending()
-                    }
+                android.util.Log.d(TAG, "📊 Total categories loaded: ${categoriesList.size}")
+                
+                // ✅ Load trending AFTER categories
+                if (isTrendingMode) {
+                    loadTrending()
+                }
 
-                    val categoriesItem = binding.navView.menu.findItem(R.id.nav_categories_container)
-                    val recyclerView = categoriesItem.actionView as? RecyclerView
+                val categoriesItem = binding.navView.menu.findItem(R.id.nav_categories_container)
+                val recyclerView = categoriesItem.actionView as? RecyclerView
 
-                    recyclerView?.apply {
-                        layoutManager = GridLayoutManager(this@MainActivity, 2)
-                        categoryAdapter = CategoryAdapter(categoriesList, firebaseDatabase!!) { selectedCategory ->
-                            isTrendingMode = false
-                            isFavoritesMode = false
+                recyclerView?.apply {
+                    layoutManager = GridLayoutManager(this@MainActivity, 2)
+                    categoryAdapter = CategoryAdapter(categoriesList, firebaseDatabase!!) { selectedCategory ->
+                        isTrendingMode = false
+                        isFavoritesMode = false
 
-                            this@MainActivity.adapter?.stopListening()
+                        this@MainActivity.adapter?.stopListening()
 
-                            mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
-                            firebaseDataLoad()
-                            supportActionBar?.title = selectedCategory.name
-                            binding.drawerLayout.closeDrawer(GravityCompat.START)
-                            invalidateOptionsMenu()
-                            analyticsTracker.logEvent(
-                                "category_select",
-                                mapOf(
-                                    "category_name" to selectedCategory.name,
-                                    "category_path" to selectedCategory.path
-                                )
+                        mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
+                        firebaseDataLoad()
+                        supportActionBar?.title = selectedCategory.name
+                        binding.drawerLayout.closeDrawer(GravityCompat.START)
+                        invalidateOptionsMenu()
+                        analyticsTracker.logEvent(
+                            "category_select",
+                            mapOf(
+                                "category_name" to selectedCategory.name,
+                                "category_path" to selectedCategory.path
                             )
+                        )
 
-                            showCategorySelectedState()
-                        }
-                        adapter = categoryAdapter
+                        showCategorySelectedState()
                     }
+                    adapter = categoryAdapter
                 }
+            }
 
-                override fun onCancelled(error: DatabaseError) {
-                    android.util.Log.e(TAG, "❌ Failed to load categories: ${error.message}")
-                    android.util.Log.e(TAG, "   Code: ${error.code}, Details: ${error.details}")
-                    Toast.makeText(this@MainActivity, "Failed to load categories: ${error.message}", Toast.LENGTH_LONG).show()
-                }
-            })
+            override fun onCancelled(error: DatabaseError) {
+                android.util.Log.e(TAG, "❌ Failed to load categories: ${error.message}")
+                android.util.Log.e(TAG, "   Code: ${error.code}, Details: ${error.details}")
+                Toast.makeText(this@MainActivity, "Failed to load categories: ${error.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+        
+        categoriesRef?.addValueEventListener(categoriesListener!!)
     }
 
     private fun loadTrending() {
@@ -921,6 +927,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     override fun onDestroy() {
+        // Prevent Firebase memory leaks by removing listeners
+        categoriesListener?.let { categoriesRef?.removeEventListener(it) }
+
         binding.appBarMain.contentMain.adView.destroy()
         appUpdateManager.unregisterListener(installStateUpdatedListener)
         super.onDestroy()
