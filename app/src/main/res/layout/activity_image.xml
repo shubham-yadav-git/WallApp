@@ -1,148 +1,209 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Pin close-up: big rounded image, action row, title, then "More like this" masonry -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
     tools:context=".ImageActivity">
 
-    <ImageView
-        android:id="@+id/image_view"
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/detail_scroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:contentDescription="@string/wallpaper_image_desc"
-        android:scaleType="centerCrop" />
-
-    <ImageView
-        android:id="@+id/double_tap_heart"
-        android:layout_width="96dp"
-        android:layout_height="96dp"
-        android:layout_gravity="center"
-        android:alpha="0"
-        android:importantForAccessibility="no"
-        android:src="@drawable/ic_favorite_24"
-        app:tint="@color/primary"
-        android:visibility="gone" />
-
-    <com.google.android.material.appbar.AppBarLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@android:color/transparent"
-        app:elevation="0dp">
-
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            app:navigationIcon="?attr/homeAsUpIndicator"
-            app:navigationIconTint="@color/onSurface" />
-
-    </com.google.android.material.appbar.AppBarLayout>
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/swipe_hint_card"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="88dp"
-        android:visibility="gone"
-        app:cardBackgroundColor="@color/surfaceVariant"
-        app:cardCornerRadius="18dp"
-        app:cardElevation="4dp"
-        app:contentPadding="10dp">
+        android:clipToPadding="false">
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="vertical">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/image_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="@color/pinPlaceholder"
+                app:cardCornerRadius="@dimen/detail_corner_radius"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        android:id="@+id/image_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="520dp"
+                        android:contentDescription="@string/wallpaper_image_desc"
+                        android:scaleType="centerCrop" />
+
+                    <ImageView
+                        android:id="@+id/double_tap_heart"
+                        android:layout_width="96dp"
+                        android:layout_height="96dp"
+                        android:layout_gravity="center"
+                        android:alpha="0"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_favorite_24"
+                        android:visibility="gone"
+                        app:tint="@color/primary" />
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/swipe_hint_card"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="bottom|center_horizontal"
+                        android:layout_marginBottom="16dp"
+                        android:visibility="gone"
+                        app:cardBackgroundColor="@color/surfaceContainerHigh"
+                        app:cardCornerRadius="18dp"
+                        app:cardElevation="4dp"
+                        app:contentPadding="10dp">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/swipe_hint"
+                                android:textColor="@color/onSurfaceVariant"
+                                android:textSize="13sp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/swipe_hint_dismiss"
+                                style="@style/Widget.Material3.Button.TextButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:minWidth="0dp"
+                                android:text="@string/got_it"
+                                android:textAllCaps="false"
+                                android:textColor="@color/onSurface" />
+                        </LinearLayout>
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                </FrameLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Action row: secondary icons left, primary CTA right -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="8dp"
+                android:paddingTop="8dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_favorite"
+                    style="@style/Widget.App.DetailIconButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/favorite"
+                    app:icon="@drawable/ic_favorite_border_24"
+                    app:iconTint="@color/favorite_button_tint" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_share"
+                    style="@style/Widget.App.DetailIconButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/share"
+                    app:icon="@drawable/ic_share_white_24dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_save"
+                    style="@style/Widget.App.DetailIconButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/download"
+                    app:icon="@drawable/ic_download_24" />
+
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_wall"
+                    style="@style/Widget.Material3.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="52dp"
+                    android:layout_marginEnd="8dp"
+                    android:paddingHorizontal="22dp"
+                    android:text="@string/set_wallpaper"
+                    android:textAppearance="@style/TextAppearance.App.Chip"
+                    app:backgroundTint="@color/primary"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Pill" />
+
+            </LinearLayout>
 
             <TextView
-                android:layout_width="wrap_content"
+                android:id="@+id/title_text"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/swipe_hint"
-                android:textColor="@color/onSurfaceVariant"
-                android:textSize="13sp" />
+                android:layout_marginTop="4dp"
+                android:paddingHorizontal="@dimen/screen_side_padding"
+                android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
+                android:textColor="@color/onSurface"
+                android:textStyle="bold"
+                tools:text="Misty mountain lake" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/swipe_hint_dismiss"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/subtitle_text"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minWidth="0dp"
-                android:text="@string/got_it"
-                android:textAllCaps="false" />
+                android:layout_marginTop="2dp"
+                android:paddingHorizontal="@dimen/screen_side_padding"
+                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                android:textColor="@color/onSurfaceVariant"
+                android:visibility="gone"
+                tools:text="3 of 40 · Trending"
+                tools:visibility="visible" />
+
+            <TextView
+                android:id="@+id/more_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:layout_marginBottom="8dp"
+                android:gravity="center"
+                android:text="@string/more_like_this"
+                android:textAppearance="@style/TextAppearance.App.SectionTitle"
+                android:visibility="gone" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/more_recycler"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                android:paddingHorizontal="@dimen/feed_side_padding"
+                android:visibility="gone"
+                tools:listitem="@layout/row" />
+
         </LinearLayout>
 
-    </com.google.android.material.card.MaterialCardView>
+    </androidx.core.widget.NestedScrollView>
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_favorite"
-        style="@style/Widget.Material3.Button.TonalButton.Icon"
+    <!-- Floating back button over the image -->
+    <ImageButton
+        android:id="@+id/btn_back"
         android:layout_width="44dp"
         android:layout_height="44dp"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="88dp"
-        android:layout_marginEnd="12dp"
-        android:contentDescription="@string/favorite"
-        android:minWidth="44dp"
-        android:minHeight="44dp"
-        android:padding="0dp"
-        app:iconGravity="textStart"
-        app:iconPadding="0dp"
-        android:textColor="@color/favorite_button_tint"
-        app:icon="@drawable/ic_favorite_border_24"
-        app:iconTint="@color/favorite_button_tint" />
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/action_card"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="32dp"
-        app:cardCornerRadius="28dp"
-        app:cardElevation="8dp"
-        app:contentPadding="8dp"
-        app:strokeWidth="0dp"
-        app:cardBackgroundColor="@color/surfaceVariant">
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_save"
-                style="@style/Widget.Material3.Button.TextButton.Icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/save"
-                app:icon="@drawable/ic_save_black_24dp"
-                app:iconTint="@color/onSurfaceVariant"
-                android:textColor="@color/onSurfaceVariant" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_share"
-                style="@style/Widget.Material3.Button.TextButton.Icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/share"
-                app:icon="@drawable/ic_share_white_24dp"
-                app:iconTint="@color/onSurfaceVariant"
-                android:textColor="@color/onSurfaceVariant" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_wall"
-                style="@style/Widget.Material3.Button.TonalButton.Icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/set_wallpaper"
-                app:icon="@drawable/ic_wallpaper_white_24dp"
-                app:cardCornerRadius="20dp" />
-
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+        android:layout_gravity="top|start"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/circle_scrim"
+        android:contentDescription="@string/back"
+        android:src="@drawable/ic_arrow_back_24"
+        app:tint="@color/white" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

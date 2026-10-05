@@ -16,7 +16,7 @@ can enable a daily auto-wallpaper rotation from favorites.
 - **Build:** Gradle (Groovy DSL), AGP 9.1 with built-in Kotlin, JDK 21
 - **SDK:** minSdk 23, target/compileSdk 36
 - **Backend:** Firebase Realtime Database (read-only from the app), no own server
-- **Other SDKs:** Firebase Analytics + Messaging, AdMob banner, Play In-App Update, Play In-App Review, Glide 5, WorkManager
+- **Other SDKs:** Firebase Analytics + Messaging, AdMob native ads (in-feed), Play In-App Update, Play In-App Review, Glide 5, WorkManager
 
 ## Commands
 
@@ -47,7 +47,11 @@ only automated check that catches most mistakes. There is no meaningful test sui
   signing reads `RELEASE_STORE_*` properties (see `local.properties.template`).
 - Release builds swap in **production AdMob IDs** via `manifestPlaceholders` /
   `resValue` in `app/build.gradle`. Debug builds use Google's test IDs. Never put
-  production ad unit IDs in debug code paths, and never click real ads while testing.
+  production ad unit IDs in debug code paths, never ship Google's test IDs in release,
+  and never click real ads while testing.
+- Ads are **native in-feed "sponsored pins"** (no banner). The release
+  `native_ad_unit_id` is empty until a Native advanced unit is created in AdMob;
+  while empty, `FeedAds` is disabled and release builds show no ads.
 
 ## Source map (`app/src/main/java/com/sky/wallapp/`)
 
@@ -55,11 +59,13 @@ only automated check that catches most mistakes. There is no meaningful test sui
 |---|---|
 | `WallAppApplication.kt` | App init: Firebase offline persistence, WorkManager config, re-schedules auto-wallpaper |
 | `Splashscreen` (`splashscreen.kt`) | Legacy splash Activity — **not** in the manifest; `MainActivity` is the launcher and uses the SplashScreen API |
-| `MainActivity.kt` | Home: nav drawer of categories, Trending / category / Favorites feeds, search, AdMob banner, in-app update, auto-wallpaper menu |
-| `ImageActivity.kt` | Detail screen: full preview, swipe between items, favorite (button / double-tap), set wallpaper, save, share, in-app review prompt |
-| `CategoryAdapter.kt` | Drawer category grid; lazily fetches each category's first image as its thumbnail |
-| `ViewHolder.kt` | Wallpaper grid cell (`res/layout/row.xml`) |
-| `Model.kt` / `Category.kt` | Firebase data classes (see schema below) |
+| `MainActivity.kt` | Pinterest-style shell with bottom nav tabs: **Home** (category chips + masonry feed; "All" = trending mix), **Search** (category tiles; client-side search over the loaded pool), **Saved** (favorites + sort), **You** (auto-wallpaper, updates, rate/share/feedback/privacy). Also in-app update |
+| `FeedAds.kt` | Loads up to 5 AdMob native ads (refreshed after ~55 min) and renders them as pins (`item_native_ad.xml`); keep the "Ad" badge + "Sponsored" line (policy) |
+| `ImageActivity.kt` | Pin close-up: large rounded preview, swipe between items, favorite (button / double-tap), set wallpaper, download, share, "More like this" grid from the same feed, in-app review prompt |
+| `PinAdapter.kt` | Masonry adapter; optionally interleaves `FeedAds` (before item 5, then every 12) on Home + Search only, never Saved; staggered layout manager factory (2 columns, 3 at ≥600dp) |
+| `ViewHolder.kt` | Masonry pin cell (`res/layout/row.xml`); per-wallpaper stable aspect ratio, heart toggle |
+| `CategoryAdapter.kt` | Search-tab category tiles; lazily fetches each category's first image as its thumbnail |
+| `Model.kt` / `Category.kt` | Firebase data classes (see schema below); `Model.displayUrl` applies the image URL rule |
 | `FavoritesStore.kt` | Local favorites as JSON in SharedPreferences, keyed by `image` URL |
 | `WallpaperSwipeSession.kt` | In-memory feed handoff from list → detail (max 6 sessions, lost on process death) |
 | `WallpaperApplier.kt` | Resizes/composes a bitmap to screen size (FIXED or SCROLLABLE) and calls `WallpaperManager` |
@@ -81,12 +87,24 @@ The app only reads. Data is maintained outside this repo.
   non-nullable / remove the default constructor** — release builds will silently
   get nulls or crash.
 - **Image URL rule:** display/download `cloudinaryUrl` when non-blank, otherwise
-  `image` (the primary host returns HTTP 402 when over quota). Every new image load
-  must follow this rule.
+  `image` (the primary host returns HTTP 402 when over quota). Use `Model.displayUrl`
+  for every new image load.
 - **Identity rule:** `image` is the stable ID for a wallpaper (favorites, last
   applied auto-wallpaper). Don't key on `cloudinaryUrl` or `title`.
+- Category feeds load once via `addListenerForSingleValueEvent` (offline cache on),
+  not a live `FirebaseRecyclerAdapter`, so ads can be interleaved.
 - "Trending" = first 20 items from every category path, merged and shuffled
   client-side (`MainActivity.loadTrending`). It costs one RTDB read per category.
+
+## UI conventions
+
+- Pinterest-style, image-first: neutral surfaces (white / near-black), one red accent
+  (`@color/primary`) reserved for the primary CTA and favorited hearts.
+- Wallpaper lists are masonry pins: reuse `ViewHolder.bind(...)` + `PinAdapter`
+  (or `ViewHolder.inflate` in a `FirebaseRecyclerAdapter`) rather than new cell layouts.
+- Inside a `NestedScrollView`, use a plain `StaggeredGridLayoutManager`, not
+  `PinAdapter.newLayoutManager` (its `GAP_HANDLING_NONE` variant measures to 0 height there).
+- Both activities are edge-to-edge (`enableEdgeToEdge()`); handle insets explicitly.
 
 ## Conventions
 
@@ -115,10 +133,10 @@ The app only reads. Data is maintained outside this repo.
   always load from the primary `image` host (the 402 fallback never applies to them).
 - `ImageActivity.saveImage()` writes directly to public `Pictures/WallApp` with
   `File` APIs; this likely fails on Android 10 (API 29) without `MediaStore`.
-- `MainActivity.loadTrending()` never finishes if a category read is cancelled
-  as the last callback — the completion check only runs in `onDataChange`.
-- `Splashscreen` Activity, the `navigation-*` dependencies, and `firebase-messaging`
-  (no messaging service is registered) are unused.
+- Search only covers the loaded pool (first 20 items per category + favorites),
+  not the full database.
+- `Splashscreen` Activity, the `navigation-*` dependencies, `firebase-ui-database`,
+  and `firebase-messaging` (no messaging service is registered) are unused.
 - `app/release/app-release.aab` is a tracked build artifact.
 - Unit/UI tests are placeholders only.
 

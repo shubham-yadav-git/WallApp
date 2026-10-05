@@ -3,44 +3,58 @@ package com.sky.wallapp
 import android.content.Intent
 import android.content.IntentSender
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.HapticFeedbackConstants
-import android.view.Menu
-import android.view.MenuItem
-import android.view.ViewGroup
+import android.os.Parcelable
+import android.util.Log
+import android.view.View
+import android.view.inputmethod.EditorInfo
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SearchView
 import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.core.view.GravityCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
+import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
-import com.firebase.ui.database.FirebaseRecyclerAdapter
-import com.firebase.ui.database.FirebaseRecyclerOptions
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.navigation.NavigationView
-import com.google.android.material.snackbar.Snackbar
-import com.google.firebase.database.*
-import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.MobileAds
+import com.google.android.material.chip.Chip
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import com.google.android.play.core.appupdate.AppUpdateManager
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.InstallStateUpdatedListener
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
-import com.google.android.play.core.install.InstallStateUpdatedListener
 import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import com.sky.wallapp.databinding.ActivityMainBinding
-import androidx.core.net.toUri
 
-class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
+/**
+ * Pinterest-style home: masonry feed with category pills (Home), search over the loaded
+ * wallpaper pool with category tiles (Search), favorites (Saved), and app settings (You).
+ */
+class MainActivity : AppCompatActivity() {
+
+    private enum class Tab(val menuId: Int) {
+        HOME(R.id.nav_home),
+        SEARCH(R.id.nav_search),
+        SAVED(R.id.nav_saved),
+        YOU(R.id.nav_you)
+    }
 
     private enum class FavoritesSortMode {
         RECENT,
@@ -54,41 +68,48 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     )
 
     private lateinit var binding: ActivityMainBinding
-    private var firebaseDatabase: FirebaseDatabase? = null
-    private var mRef: DatabaseReference? = null
-    private var adapter: FirebaseRecyclerAdapter<Model, ViewHolder>? = null
-    private val categoriesList = mutableListOf<Category>()
-    private var categoryAdapter: CategoryAdapter? = null
-    private var isTrendingMode = true
-    private var isFavoritesMode = false
-    private var fullList = mutableListOf<Model>()
+    private lateinit var firebaseDatabase: FirebaseDatabase
     private lateinit var analyticsTracker: AnalyticsTracker
     private lateinit var appUpdateManager: AppUpdateManager
+
+    private lateinit var feedAds: FeedAds
+
+    private var currentTab = Tab.HOME
+    private val categoriesList = mutableListOf<Category>()
+    private var categoryAdapter: CategoryAdapter? = null
+
+    /** Selected home category; null means "All" (the trending mix). */
+    private var selectedCategory: Category? = null
+    private var suppressChipEvents = false
+
+    /** First [TRENDING_ITEMS_PER_CATEGORY] items of every category, shuffled. Also the search pool. */
+    private val trendingItems = mutableListOf<Model>()
+    private var trendingLoaded = false
+    private var trendingRequestId = 0
+
+    private var searchQuery = ""
     private var favoritesSortMode = FavoritesSortMode.RECENT
+
+    /** Home feed scroll position, restored when coming back from another tab. */
+    private var pendingHomeScrollState: Parcelable? = null
 
     // Firebase state management to prevent leaks
     private var categoriesRef: DatabaseReference? = null
     private var categoriesListener: ValueEventListener? = null
-    
+
     private val installStateUpdatedListener = InstallStateUpdatedListener { state ->
         when (state.installStatus()) {
             InstallStatus.DOWNLOADED -> {
                 analyticsTracker.logEvent("in_app_update_downloaded")
                 showUpdateDownloadedSnackbar()
             }
-            InstallStatus.DOWNLOADING -> {
-                analyticsTracker.logEvent("in_app_update_downloading")
-            }
-            InstallStatus.INSTALLING -> {
-                analyticsTracker.logEvent("in_app_update_installing")
-            }
-            InstallStatus.FAILED -> {
-                analyticsTracker.logEvent("in_app_update_failed")
-            }
+            InstallStatus.DOWNLOADING -> analyticsTracker.logEvent("in_app_update_downloading")
+            InstallStatus.INSTALLING -> analyticsTracker.logEvent("in_app_update_installing")
+            InstallStatus.FAILED -> analyticsTracker.logEvent("in_app_update_failed")
             else -> {}
         }
     }
-    
+
     private val updateFlowLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result: ActivityResult ->
@@ -108,24 +129,21 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         ) == true
         if (!favoritesChanged) return@registerForActivityResult
 
-        if (isFavoritesMode) {
+        if (currentTab == Tab.SAVED) {
             loadFavorites()
         } else {
-            binding.appBarMain.contentMain.recyclerView.adapter?.notifyDataSetChanged()
+            binding.feedRecycler.adapter?.notifyDataSetChanged()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setSupportActionBar(binding.appBarMain.toolbar)
-
         firebaseDatabase = FirebaseDatabase.getInstance()
-        android.util.Log.d(TAG, "🔥 Firebase Database initialized: ${firebaseDatabase?.reference?.toString()}")
-        
         analyticsTracker = AnalyticsTracker(FirebaseAnalytics.getInstance(this))
         appUpdateManager = AppUpdateManagerFactory.create(this)
         appUpdateManager.registerListener(installStateUpdatedListener)
@@ -133,519 +151,389 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         analyticsTracker.logEvent("app_open")
         checkForAppUpdates()
 
-        // Initialise AdMob and load the banner ad
+        // Sponsored pins in the Home and Search feeds (native ads styled like wallpapers)
         MobileAds.initialize(this) {}
-        val adRequest = AdRequest.Builder().build()
-        binding.appBarMain.contentMain.adView.loadAd(adRequest)
+        feedAds = FeedAds(this, getString(R.string.native_ad_unit_id))
+        feedAds.onAdsChanged = { (binding.feedRecycler.adapter as? PinAdapter)?.refreshAds() }
+        feedAds.loadIfNeeded()
 
-        val toggle = ActionBarDrawerToggle(
-            this, binding.drawerLayout, binding.appBarMain.toolbar,
-            R.string.navigation_drawer_open, R.string.navigation_drawer_close
-        )
-        binding.drawerLayout.addDrawerListener(toggle)
-        toggle.syncState()
+        setupInsets()
+        setupLists()
+        setupSearch()
+        setupProfile()
+        setupBottomNav()
+        setupBackHandling()
+        renderCategoryChips()
+        loadCategories()
 
-        binding.navView.setNavigationItemSelectedListener(this)
-        binding.appBarMain.contentMain.recyclerView.layoutManager = GridLayoutManager(this, 2)
-        showLoading()
+        val restoredTab = savedInstanceState?.getString(STATE_TAB)
+            ?.let { name -> Tab.entries.firstOrNull { it.name == name } }
+            ?: Tab.HOME
+        if (restoredTab == Tab.HOME) {
+            selectTab(Tab.HOME)
+        } else {
+            binding.bottomNav.selectedItemId = restoredTab.menuId
+        }
+    }
 
-        loadCategoriesToDrawer()
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(STATE_TAB, currentTab.name)
+        super.onSaveInstanceState(outState)
+    }
 
+    // ── Setup ───────────────────────────────────────────────────────────────────
+
+    private fun setupInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.appBar) { view, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.updatePadding(top = systemBars.top)
+            binding.statusBarScrim.updateLayoutParams { height = systemBars.top }
+            insets
+        }
+
+        // Keep the last row of every scrolling list clear of the bottom navigation.
+        binding.bottomBar.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
+            val bottomSpace = bottom - top + resources.getDimensionPixelSize(R.dimen.pin_gutter)
+            listOf(binding.feedRecycler, binding.categoryGrid, binding.profileScroll).forEach {
+                if (it.paddingBottom != bottomSpace) it.updatePadding(bottom = bottomSpace)
+            }
+        }
+    }
+
+    private fun setupLists() {
+        binding.feedRecycler.layoutManager = PinAdapter.newLayoutManager(this)
+
+        binding.categoryGrid.layoutManager = GridLayoutManager(this, PinAdapter.spanCount(this))
+        categoryAdapter = CategoryAdapter(categoriesList, firebaseDatabase) { category ->
+            analyticsTracker.logEvent(
+                "search_category_tile",
+                mapOf("category_name" to category.name, "category_path" to category.path)
+            )
+            categoryAdapter?.clearSelection()
+            openCategoryOnHome(category)
+        }
+        binding.categoryGrid.adapter = categoryAdapter
+    }
+
+    private fun setupBottomNav() {
+        binding.bottomNav.setOnItemSelectedListener { item ->
+            val tab = Tab.entries.firstOrNull { it.menuId == item.itemId } ?: return@setOnItemSelectedListener false
+            selectTab(tab)
+            true
+        }
+        binding.bottomNav.setOnItemReselectedListener {
+            // Tapping the active tab again scrolls back to the top, like most feed apps.
+            binding.appBar.setExpanded(true)
+            binding.feedRecycler.smoothScrollToPosition(0)
+            binding.categoryGrid.smoothScrollToPosition(0)
+            binding.profileScroll.smoothScrollTo(0, 0)
+        }
+    }
+
+    private fun setupBackHandling() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
-                    binding.drawerLayout.closeDrawer(GravityCompat.START)
-                } else {
-                    showExitDialog()
+                when {
+                    currentTab == Tab.SEARCH && searchQuery.isNotEmpty() -> binding.searchInput.setText("")
+                    currentTab != Tab.HOME -> binding.bottomNav.selectedItemId = R.id.nav_home
+                    selectedCategory != null -> checkChipFor(null, notify = true)
+                    else -> showExitDialog()
                 }
             }
         })
     }
 
-    private fun firebaseDataLoad() {
-        val query: Query = mRef!!
-        showLoading()
+    // ── Tabs ────────────────────────────────────────────────────────────────────
 
-        val options = FirebaseRecyclerOptions.Builder<Model>()
-            .setQuery(query, Model::class.java)
-            .build()
-
-        adapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
-            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-                val view = LayoutInflater.from(parent.context)
-                    .inflate(R.layout.row, parent, false)
-                return ViewHolder(view)
-            }
-
-            override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
-                holder.textView.text = model.title
-                // Use cloudinaryUrl if available, otherwise use image
-                val urlToLoad = if (!model.cloudinaryUrl.isNullOrBlank()) model.cloudinaryUrl else model.image
-                Glide.with(applicationContext).load(urlToLoad).into(holder.imageView)
-                bindFavoriteUi(holder, model, "category")
-
-                holder.itemView.setOnClickListener {
-                    analyticsTracker.logEvent(
-                        "wallpaper_open",
-                        mapOf("source" to "category", "title" to model.title)
-                    )
-                    val feedContext = getFirebaseFeedContext(position, "category")
-                    openImageDetail(model, feedContext)
-                }
-            }
-
-            override fun onDataChanged() {
-                updateListState(itemCount)
-            }
-
-            override fun onError(error: DatabaseError) {
-                showEmpty(getString(R.string.empty_wallpapers))
-            }
+    private fun selectTab(tab: Tab) {
+        if (currentTab == Tab.HOME && tab != Tab.HOME) {
+            pendingHomeScrollState = binding.feedRecycler.layoutManager?.onSaveInstanceState()
         }
+        currentTab = tab
+        binding.appBar.setExpanded(true, false)
+        if (tab != Tab.SEARCH) hideKeyboard()
 
-        binding.appBarMain.contentMain.recyclerView.adapter = adapter
-        adapter?.startListening()
+        binding.categoryScroll.isVisible = tab == Tab.HOME
+        binding.titleRow.isVisible = tab == Tab.SAVED || tab == Tab.YOU
+        binding.sortButton.isVisible = tab == Tab.SAVED
+        binding.searchBar.isVisible = tab == Tab.SEARCH
+        binding.searchSectionTitle.isVisible = tab == Tab.SEARCH && searchQuery.isEmpty()
+        binding.screenTitle.setText(if (tab == Tab.YOU) R.string.tab_you else R.string.tab_saved)
+
+        when (tab) {
+            Tab.HOME -> renderHome()
+            Tab.SEARCH -> renderSearch()
+            Tab.SAVED -> loadFavorites()
+            Tab.YOU -> renderProfile()
+        }
+        analyticsTracker.logEvent("tab_open", mapOf("tab" to tab.name.lowercase()))
     }
 
-    private fun loadCategoriesToDrawer() {
-        categoriesRef = firebaseDatabase?.getReference("categories")
-        android.util.Log.d(TAG, "🔄 Loading categories from: ${categoriesRef?.toString()}")
-        
+    // ── Home ────────────────────────────────────────────────────────────────────
+
+    private fun renderHome() {
+        val category = selectedCategory
+        if (category == null) {
+            if (trendingLoaded) {
+                showStaticFeed(trendingItems.toList(), "trending", getString(R.string.empty_wallpapers), withAds = true)
+            } else {
+                showLoading()
+            }
+        } else {
+            showCategoryFeed(category)
+        }
+    }
+
+    private fun loadCategories() {
+        categoriesRef = firebaseDatabase.getReference("categories")
+        Log.d(TAG, "Loading categories from: $categoriesRef")
+
         categoriesListener = object : ValueEventListener {
-
             override fun onDataChange(snapshot: DataSnapshot) {
-                android.util.Log.d(TAG, "✅ Categories data received. Children count: ${snapshot.childrenCount}")
-                
                 categoriesList.clear()
-
                 snapshot.children.forEach { postSnapshot ->
-                    postSnapshot.getValue(Category::class.java)?.let {
-                        android.util.Log.d(TAG, "  📁 Category: ${it.name} -> ${it.path}")
-                        categoriesList.add(it)
-                    }
+                    postSnapshot.getValue(Category::class.java)?.let { categoriesList.add(it) }
                 }
+                Log.d(TAG, "Categories loaded: ${categoriesList.size}")
 
-                android.util.Log.d(TAG, "📊 Total categories loaded: ${categoriesList.size}")
-                
-                // ✅ Load trending AFTER categories
-                if (isTrendingMode) {
-                    loadTrending()
+                // Drop a selection whose category no longer exists.
+                if (selectedCategory != null && categoriesList.none { it.path == selectedCategory?.path }) {
+                    selectedCategory = null
                 }
-
-                val categoriesItem = binding.navView.menu.findItem(R.id.nav_categories_container)
-                val recyclerView = categoriesItem.actionView as? RecyclerView
-
-                recyclerView?.apply {
-                    layoutManager = GridLayoutManager(this@MainActivity, 2)
-                    categoryAdapter = CategoryAdapter(categoriesList, firebaseDatabase!!) { selectedCategory ->
-                        isTrendingMode = false
-                        isFavoritesMode = false
-
-                        this@MainActivity.adapter?.stopListening()
-
-                        mRef = firebaseDatabase?.getReference(selectedCategory.path ?: "random")
-                        firebaseDataLoad()
-                        supportActionBar?.title = selectedCategory.name
-                        binding.drawerLayout.closeDrawer(GravityCompat.START)
-                        invalidateOptionsMenu()
-                        analyticsTracker.logEvent(
-                            "category_select",
-                            mapOf(
-                                "category_name" to selectedCategory.name,
-                                "category_path" to selectedCategory.path
-                            )
-                        )
-
-                        showCategorySelectedState()
-                    }
-                    adapter = categoryAdapter
-                }
+                renderCategoryChips()
+                categoryAdapter?.notifyDataSetChanged()
+                if (currentTab == Tab.SEARCH && searchQuery.isEmpty()) renderSearch()
+                loadTrending()
             }
 
             override fun onCancelled(error: DatabaseError) {
-                android.util.Log.e(TAG, "❌ Failed to load categories: ${error.message}")
-                android.util.Log.e(TAG, "   Code: ${error.code}, Details: ${error.details}")
-                Toast.makeText(this@MainActivity, "Failed to load categories: ${error.message}", Toast.LENGTH_LONG).show()
+                Log.e(TAG, "Failed to load categories: ${error.message} (code ${error.code})")
+                trendingLoaded = true
+                if (currentTab == Tab.HOME && selectedCategory == null) {
+                    showStaticFeed(emptyList(), "trending", getString(R.string.empty_wallpapers))
+                }
             }
         }
-        
+
         categoriesRef?.addValueEventListener(categoriesListener!!)
     }
 
     private fun loadTrending() {
-        isTrendingMode = true
-        isFavoritesMode = false
-        supportActionBar?.title = "Trending"
-        showTrendingSelectedState()
-        showLoading()
-        invalidateOptionsMenu()
-        analyticsTracker.logEvent("open_trending")
-        android.util.Log.d(TAG, "🔄 Loading trending wallpapers...")
-
-        adapter?.stopListening()
-        adapter = null
-
-        if (categoriesList.isEmpty()) {
-            android.util.Log.w(TAG, "⚠️ No categories available for trending")
-            showEmpty(getString(R.string.empty_wallpapers))
+        val requestId = ++trendingRequestId
+        val paths = categoriesList.mapNotNull { it.path?.takeIf(String::isNotBlank) }
+        if (paths.isEmpty()) {
+            onTrendingLoaded(emptyList())
             return
         }
 
-        android.util.Log.d(TAG, "📊 Processing ${categoriesList.size} categories for trending")
-        val allPhotos = mutableListOf<Model>()
-        var categoriesProcessed = 0
-        val totalCategories = categoriesList.size
+        val collected = mutableListOf<Model>()
+        var remaining = paths.size
 
-        for (category in categoriesList) {
-            val path = category.path ?: continue
-            android.util.Log.d(TAG, "  🔍 Fetching from path: $path")
+        // Count failures too, so one failing category can't leave the feed loading forever.
+        fun onCategoryDone() {
+            remaining -= 1
+            if (remaining == 0 && requestId == trendingRequestId) {
+                onTrendingLoaded(collected.shuffled())
+            }
+        }
 
-            firebaseDatabase?.getReference(path)
-                ?.limitToFirst(20)
-                ?.addListenerForSingleValueEvent(object : ValueEventListener {
-
+        paths.forEach { path ->
+            firebaseDatabase.getReference(path)
+                .limitToFirst(TRENDING_ITEMS_PER_CATEGORY)
+                .addListenerForSingleValueEvent(object : ValueEventListener {
                     override fun onDataChange(snapshot: DataSnapshot) {
-                        val itemCount = snapshot.childrenCount
-                        android.util.Log.d(TAG, "    ✅ $path: ${itemCount} items")
-                        
-                        for (postSnapshot in snapshot.children) {
-                            val model = postSnapshot.getValue(Model::class.java)
-                            if (model != null) {
-                                allPhotos.add(model)
-                            }
-                        }
-
-                        categoriesProcessed++
-                        android.util.Log.d(TAG, "  📈 Progress: $categoriesProcessed/$totalCategories categories")
-
-                        if (categoriesProcessed == totalCategories) {
-                            android.util.Log.d(TAG, "✅ Trending complete. Total photos: ${allPhotos.size}")
-                            fullList.clear()
-                            fullList.addAll(allPhotos)
-                            bindStaticList(allPhotos.shuffled())
-                            analyticsTracker.logEvent(
-                                "trending_loaded",
-                                mapOf("item_count" to allPhotos.size.toString())
-                            )
-                        }
+                        snapshot.children.mapNotNullTo(collected) { it.getValue(Model::class.java) }
+                        onCategoryDone()
                     }
 
                     override fun onCancelled(error: DatabaseError) {
-                        android.util.Log.e(TAG, "    ❌ Error loading $path: ${error.message}")
-                        categoriesProcessed++
+                        Log.e(TAG, "Error loading $path: ${error.message}")
+                        onCategoryDone()
                     }
                 })
         }
     }
 
-    private fun loadFavorites() {
-        isTrendingMode = false
-        isFavoritesMode = true
-        supportActionBar?.title = getString(R.string.nav_favorites)
+    private fun onTrendingLoaded(items: List<Model>) {
+        trendingItems.clear()
+        trendingItems.addAll(items)
+        trendingLoaded = true
+        analyticsTracker.logEvent("trending_loaded", mapOf("item_count" to items.size.toString()))
 
-        adapter?.stopListening()
-        adapter = null
-
-        val favorites = FavoritesStore.getFavorites(this)
-        val sortedFavorites = sortFavorites(favorites)
-        fullList.clear()
-        fullList.addAll(sortedFavorites)
-        bindStaticList(sortedFavorites)
-        binding.navView.setCheckedItem(R.id.nav_favorites)
-        invalidateOptionsMenu()
-
-        analyticsTracker.logEvent("open_favorites", mapOf("item_count" to sortedFavorites.size.toString()))
+        when {
+            currentTab == Tab.HOME && selectedCategory == null -> renderHome()
+            currentTab == Tab.SEARCH && searchQuery.isNotEmpty() -> renderSearch()
+        }
     }
 
-    private fun bindStaticList(items: List<Model>) {
-        updateListState(items.size)
-        binding.appBarMain.contentMain.recyclerView.adapter =
-            object : RecyclerView.Adapter<ViewHolder>() {
+    private fun renderCategoryChips() {
+        val group = binding.categoryChips
+        suppressChipEvents = true
+        group.removeAllViews()
+        group.addView(createCategoryChip(getString(R.string.category_all), null))
+        categoriesList.forEach { group.addView(createCategoryChip(it.name.orEmpty(), it)) }
+        checkChipFor(selectedCategory, notify = false)
+        suppressChipEvents = false
 
-                override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-                    val view = LayoutInflater.from(parent.context)
-                        .inflate(R.layout.row, parent, false)
-                    return ViewHolder(view)
-                }
-
-                override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-                    val model = items[position]
-
-                    holder.textView.text = model.title
-                    // Use cloudinaryUrl if available, otherwise use image
-                    val urlToLoad = if (!model.cloudinaryUrl.isNullOrBlank()) model.cloudinaryUrl else model.image
-                    Glide.with(applicationContext)
-                        .load(urlToLoad)
-                        .into(holder.imageView)
-                    bindFavoriteUi(
-                        holder,
-                        model,
-                        if (isFavoritesMode) "favorites" else "trending"
-                    )
-
-                    holder.itemView.setOnClickListener {
-                        val source = if (isFavoritesMode) "favorites" else "trending"
-                        analyticsTracker.logEvent(
-                            "wallpaper_open",
-                            mapOf(
-                                "source" to source,
-                                "title" to model.title
-                            )
-                        )
-                        val feedContext = FeedContext(items = items, currentIndex = position, source = source)
-                        openImageDetail(model, feedContext)
-                    }
-                }
-
-                override fun getItemCount(): Int = items.size
-            }
+        group.setOnCheckedStateChangeListener { chipGroup, checkedIds ->
+            if (suppressChipEvents) return@setOnCheckedStateChangeListener
+            val chip = checkedIds.firstOrNull()?.let { chipGroup.findViewById<Chip>(it) }
+                ?: return@setOnCheckedStateChangeListener
+            onCategoryChipSelected(chip.tag as? Category)
+            scrollChipIntoView(chip)
+        }
     }
 
-    private fun localSearch(searchText: String) {
-        val query = searchText.trim()
+    private fun createCategoryChip(label: String, category: Category?): Chip {
+        return (layoutInflater.inflate(R.layout.item_category_chip, binding.categoryChips, false) as Chip).apply {
+            id = View.generateViewId()
+            text = label
+            tag = category
+        }
+    }
 
-        if (isTrendingMode || isFavoritesMode) {
-            if (query.isEmpty()) {
-                bindStaticList(if (isTrendingMode) fullList.shuffled() else fullList)
-            } else {
-                val filtered = fullList.filter {
-                    it.title?.contains(query, ignoreCase = true) == true
-                }
-                bindStaticList(filtered)
-                if (filtered.isEmpty()) {
-                    showEmpty(getString(R.string.empty_search_results))
-                }
-                analyticsTracker.logEvent(
-                    "search_trending",
-                    mapOf("query" to query, "result_count" to filtered.size.toString())
-                )
-            }
+    /** Checks the chip for [category] (null = "All"). With [notify] the feed reloads as if tapped. */
+    private fun checkChipFor(category: Category?, notify: Boolean) {
+        val group = binding.categoryChips
+        val chip = (0 until group.childCount)
+            .map { group.getChildAt(it) as Chip }
+            .firstOrNull { (it.tag as? Category)?.path == category?.path }
+            ?: return
+
+        if (chip.isChecked) {
+            if (notify) onCategoryChipSelected(category)
+        } else {
+            val previous = suppressChipEvents
+            suppressChipEvents = !notify
+            chip.isChecked = true
+            suppressChipEvents = previous
+        }
+        scrollChipIntoView(chip)
+    }
+
+    private fun scrollChipIntoView(chip: Chip) {
+        binding.categoryScroll.post {
+            val target = chip.left - (binding.categoryScroll.width - chip.width) / 2
+            binding.categoryScroll.smoothScrollTo(target.coerceAtLeast(0), 0)
+        }
+    }
+
+    private fun onCategoryChipSelected(category: Category?) {
+        selectedCategory = category
+        pendingHomeScrollState = null
+        binding.appBar.setExpanded(true)
+        if (currentTab == Tab.HOME) renderHome()
+
+        if (category == null) {
+            analyticsTracker.logEvent("open_trending")
+        } else {
+            analyticsTracker.logEvent(
+                "category_select",
+                mapOf("category_name" to category.name, "category_path" to category.path)
+            )
+        }
+    }
+
+    private fun openCategoryOnHome(category: Category) {
+        selectedCategory = category
+        pendingHomeScrollState = null
+        checkChipFor(category, notify = false)
+        binding.bottomNav.selectedItemId = R.id.nav_home
+    }
+
+    /** Loads a category once (served from the offline cache when available) into the masonry feed. */
+    private fun showCategoryFeed(category: Category) {
+        val path = category.path?.takeIf { it.isNotBlank() } ?: run {
+            showFeed(0, getString(R.string.empty_wallpapers))
             return
         }
-
-        val ref = mRef ?: return
-        val firebaseSearchQuery = mRef?.orderByChild("title")
-            ?.startAt(searchText)
-            ?.endAt(searchText + "\uf8ff")
-
-        val options = FirebaseRecyclerOptions.Builder<Model>()
-            .setQuery(firebaseSearchQuery ?: ref, Model::class.java)
-            .build()
         showLoading()
 
-        adapter = object : FirebaseRecyclerAdapter<Model, ViewHolder>(options) {
-            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-                val view = LayoutInflater.from(parent.context)
-                    .inflate(R.layout.row, parent, false)
-                return ViewHolder(view)
+        firebaseDatabase.getReference(path).addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (!isShowingCategory(path)) return
+                val items = snapshot.children.mapNotNull { it.getValue(Model::class.java) }
+                showStaticFeed(items, "category", getString(R.string.empty_wallpapers), withAds = true)
             }
 
-            override fun onBindViewHolder(holder: ViewHolder, position: Int, model: Model) {
-                holder.textView.text = model.title
-                // Use cloudinaryUrl if available, otherwise use image
-                val urlToLoad = if (!model.cloudinaryUrl.isNullOrBlank()) model.cloudinaryUrl else model.image
-                Glide.with(applicationContext).load(urlToLoad).into(holder.imageView)
-                bindFavoriteUi(holder, model, "search_category")
-
-                holder.itemView.setOnClickListener {
-                    analyticsTracker.logEvent(
-                        "wallpaper_open",
-                        mapOf("source" to "search_category", "title" to model.title)
-                    )
-                    val feedContext = getFirebaseFeedContext(position, "search_category")
-                    openImageDetail(model, feedContext)
-                }
-            }
-
-            override fun onDataChanged() {
-                if (itemCount == 0 && query.isNotEmpty()) {
-                    showEmpty(getString(R.string.empty_search_results))
-                } else {
-                    updateListState(itemCount)
-                }
-                analyticsTracker.logEvent(
-                    "search_category",
-                    mapOf("query" to query, "result_count" to itemCount.toString())
-                )
-            }
-
-            override fun onError(error: DatabaseError) {
-                showEmpty(getString(R.string.empty_wallpapers))
-            }
-        }
-
-        binding.appBarMain.contentMain.recyclerView.adapter = adapter
-        adapter?.startListening()
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.menu, menu)
-        menu.findItem(R.id.action_sort_favorites).isVisible = isFavoritesMode
-        menu.findItem(R.id.action_auto_wallpaper)?.title = getAutoWallpaperMenuTitle()
-        menu.findItem(R.id.action_auto_wallpaper_run_now)?.isVisible = AutoWallpaperManager.isEnabled(this)
-        val searchView = menu.findItem(R.id.action_search).actionView as SearchView
-
-        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(s: String): Boolean {
-                localSearch(s)
-                analyticsTracker.logEvent("search_submit", mapOf("query" to s.trim()))
-                return false
-            }
-
-            override fun onQueryTextChange(newText: String): Boolean {
-                localSearch(newText)
-                return false
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "Error loading category $path: ${error.message}")
+                if (isShowingCategory(path)) showFeed(0, getString(R.string.empty_wallpapers))
             }
         })
-        return true
     }
 
-    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
-        menu.findItem(R.id.action_sort_favorites)?.isVisible = isFavoritesMode
-        menu.findItem(R.id.action_auto_wallpaper)?.title = getAutoWallpaperMenuTitle()
-        menu.findItem(R.id.action_auto_wallpaper_run_now)?.isVisible = AutoWallpaperManager.isEnabled(this)
-        return super.onPrepareOptionsMenu(menu)
+    /** Guards async category loads against the user having moved on. */
+    private fun isShowingCategory(path: String): Boolean =
+        !isDestroyed && currentTab == Tab.HOME && selectedCategory?.path == path
+
+    private fun restoreHomeScrollIfPending() {
+        if (currentTab != Tab.HOME) return
+        pendingHomeScrollState?.let { binding.feedRecycler.layoutManager?.onRestoreInstanceState(it) }
+        pendingHomeScrollState = null
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_sort_favorites -> {
-                showFavoritesSortDialog()
-                true
-            }
-            R.id.action_auto_wallpaper -> {
-                handleAutoWallpaperAction()
-                true
-            }
-            R.id.action_auto_wallpaper_run_now -> {
-                runAutoWallpaperNow()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
+    // ── Search ──────────────────────────────────────────────────────────────────
 
-
-    override fun onNavigationItemSelected(menuItem: MenuItem): Boolean {
-        when (menuItem.itemId) {
-            R.id.nav_home -> loadTrending()
-
-            R.id.nav_favorites -> loadFavorites()
-
-            R.id.nav_contact -> {
-                analyticsTracker.logEvent("nav_contact")
-                val intent = Intent(Intent.ACTION_SEND)
-                intent.putExtra(Intent.EXTRA_EMAIL, arrayOf("shubhamskyjnp@gmail.com"))
-                intent.putExtra(Intent.EXTRA_SUBJECT, "Feedback for WallApp")
-                intent.type = "message/rfc822"
-                startActivity(Intent.createChooser(intent, "Choose Email Client"))
-            }
-
-            R.id.nav_share -> {
-                analyticsTracker.logEvent("nav_share_app")
-                val intent = Intent(Intent.ACTION_SEND)
-                intent.type = "text/plain"
-                intent.putExtra(Intent.EXTRA_TEXT,
-                    "https://play.google.com/store/apps/details?id=$packageName")
-                startActivity(Intent.createChooser(intent, "Share via"))
-            }
-
-            R.id.nav_rate_us -> {
-                analyticsTracker.logEvent("nav_rate_app")
-                startActivity(Intent(Intent.ACTION_VIEW,
-                    "https://play.google.com/store/apps/details?id=$packageName".toUri()))
-            }
-
-            R.id.nav_privacy -> {
-                startActivity(Intent(this, PrivacyPolicyActivity::class.java))
-            }
+    private fun setupSearch() {
+        binding.searchInput.doAfterTextChanged { text ->
+            val query = text?.toString()?.trim().orEmpty()
+            binding.searchClear.isVisible = !text.isNullOrEmpty()
+            if (query == searchQuery) return@doAfterTextChanged
+            searchQuery = query
+            if (currentTab == Tab.SEARCH) renderSearch()
         }
 
-        binding.drawerLayout.closeDrawer(GravityCompat.START)
-        return true
+        binding.searchInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId != EditorInfo.IME_ACTION_SEARCH) return@setOnEditorActionListener false
+            hideKeyboard()
+            analyticsTracker.logEvent("search_submit", mapOf("query" to searchQuery))
+            true
+        }
+
+        binding.searchClear.setOnClickListener { binding.searchInput.setText("") }
     }
 
-    private fun showExitDialog() {
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Exit App")
-            .setMessage("Are you sure you want to exit?")
-            .setPositiveButton("Yes") { _, _ -> finish() }
-            .setNegativeButton("No", null)
-            .show()
-    }
+    private fun renderSearch() {
+        binding.searchSectionTitle.isVisible = searchQuery.isEmpty()
 
-    private fun showTrendingSelectedState() {
-        val trendingItem = binding.navView.menu.findItem(R.id.nav_home)
-        trendingItem.isCheckable = true
-        trendingItem.isChecked = true
-        binding.navView.menu.findItem(R.id.nav_favorites).isChecked = false
-        binding.navView.setCheckedItem(R.id.nav_home)
-        categoryAdapter?.clearSelection()
-    }
-
-    private fun showCategorySelectedState() {
-        binding.navView.menu.findItem(R.id.nav_home).isChecked = false
-        binding.navView.menu.findItem(R.id.nav_favorites).isChecked = false
-    }
-
-    private fun bindFavoriteUi(holder: ViewHolder, model: Model, source: String) {
-        if (model.image.isNullOrBlank()) {
-            holder.favoriteButton.isEnabled = false
-            holder.favoriteButton.alpha = 0.5f
-            holder.favoriteButton.isSelected = false
-            holder.favoriteButton.isActivated = false
-            holder.favoriteButton.setImageResource(R.drawable.ic_favorite_border_24)
+        if (searchQuery.isEmpty()) {
+            if (categoriesList.isEmpty()) showLoading() else showOnly(binding.categoryGrid)
             return
         }
 
-        holder.favoriteButton.isEnabled = true
-        holder.favoriteButton.alpha = 1f
-        val isFavorite = FavoritesStore.isFavorite(this, model.image)
-        holder.favoriteButton.isSelected = isFavorite
-        holder.favoriteButton.isActivated = isFavorite
-        holder.favoriteButton.setImageResource(
-            if (isFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
-        )
-
-        holder.favoriteButton.setOnClickListener {
-            val nowFavorite = FavoritesStore.toggleFavorite(this, model.title, model.image)
-            holder.favoriteButton.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-            holder.favoriteButton.setImageResource(
-                if (nowFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
-            )
-            holder.favoriteButton.isSelected = nowFavorite
-            holder.favoriteButton.isActivated = nowFavorite
-
-            // Micro animation for better touch feedback on heart toggle.
-            holder.favoriteButton.animate().cancel()
-            holder.favoriteButton.animate()
-                .scaleX(0.82f)
-                .scaleY(0.82f)
-                .setDuration(70)
-                .withEndAction {
-                    holder.favoriteButton.animate()
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .setDuration(120)
-                        .start()
-                }
-                .start()
-
-            analyticsTracker.logEvent(
-                if (nowFavorite) "favorite_added" else "favorite_removed",
-                mapOf("title" to model.title, "source" to source)
-            )
-
-            Toast.makeText(
-                this,
-                if (nowFavorite) getString(R.string.favorite_added) else getString(R.string.favorite_removed),
-                Toast.LENGTH_SHORT
-            ).show()
-
-            if (isFavoritesMode && !nowFavorite) {
-                loadFavorites()
-            }
+        if (!trendingLoaded) {
+            showLoading()
+            return
         }
+
+        val tokens = searchQuery.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val results = searchPool().filter { model ->
+            val haystack = "${model.title.orEmpty()} ${model.search.orEmpty()}".lowercase()
+            tokens.all { haystack.contains(it) }
+        }
+        showStaticFeed(results, "search", getString(R.string.empty_search_results), withAds = true)
+        analyticsTracker.logEvent(
+            "search_results",
+            mapOf("query" to searchQuery, "result_count" to results.size.toString())
+        )
+    }
+
+    /** Everything already on the device: the trending mix plus saved favorites. */
+    private fun searchPool(): List<Model> =
+        (trendingItems + FavoritesStore.getFavorites(this)).distinctBy { it.image }
+
+    private fun hideKeyboard() {
+        binding.searchInput.clearFocus()
+        WindowCompat.getInsetsController(window, binding.searchInput).hide(WindowInsetsCompat.Type.ime())
+    }
+
+    // ── Saved ───────────────────────────────────────────────────────────────────
+
+    private fun loadFavorites() {
+        val favorites = sortFavorites(FavoritesStore.getFavorites(this))
+        showStaticFeed(favorites, "favorites", getString(R.string.empty_favorites))
+        analyticsTracker.logEvent("open_favorites", mapOf("item_count" to favorites.size.toString()))
     }
 
     private fun sortFavorites(items: List<Model>): List<Model> {
@@ -677,11 +565,75 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             .show()
     }
 
+    private fun readFavoritesSortMode(): FavoritesSortMode {
+        val raw = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .getString(KEY_FAVORITES_SORT_MODE, FavoritesSortMode.RECENT.name)
+        return runCatching { FavoritesSortMode.valueOf(raw ?: FavoritesSortMode.RECENT.name) }
+            .getOrDefault(FavoritesSortMode.RECENT)
+    }
+
+    private fun saveFavoritesSortMode(mode: FavoritesSortMode) {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit {
+            putString(KEY_FAVORITES_SORT_MODE, mode.name)
+        }
+    }
+
+    // ── You (profile + settings) ────────────────────────────────────────────────
+
+    private fun setupProfile() {
+        binding.sortButton.setOnClickListener { showFavoritesSortDialog() }
+
+        val profile = binding.profile
+        profile.rowAutoWallpaper.setOnClickListener { handleAutoWallpaperAction() }
+        profile.rowRunNow.setOnClickListener { runAutoWallpaperNow() }
+        profile.rowCheckUpdate.setOnClickListener {
+            analyticsTracker.logEvent("check_updates_manual")
+            checkForAppUpdates(force = true)
+        }
+        profile.rowRate.setOnClickListener {
+            analyticsTracker.logEvent("nav_rate_app")
+            startActivity(Intent(Intent.ACTION_VIEW, playStoreUrl().toUri()))
+        }
+        profile.rowShare.setOnClickListener {
+            analyticsTracker.logEvent("nav_share_app")
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, playStoreUrl())
+            }
+            startActivity(Intent.createChooser(intent, getString(R.string.share_via)))
+        }
+        profile.rowFeedback.setOnClickListener {
+            analyticsTracker.logEvent("nav_contact")
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "message/rfc822"
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(FEEDBACK_EMAIL))
+                putExtra(Intent.EXTRA_SUBJECT, getString(R.string.feedback_subject))
+            }
+            startActivity(Intent.createChooser(intent, getString(R.string.choose_email_client)))
+        }
+        profile.rowPrivacy.setOnClickListener {
+            startActivity(Intent(this, PrivacyPolicyActivity::class.java))
+        }
+        profile.versionText.text = getString(R.string.version_format, appVersionName())
+    }
+
+    private fun renderProfile() {
+        showOnly(binding.profileScroll)
+
+        val profile = binding.profile
+        val autoEnabled = AutoWallpaperManager.isEnabled(this)
+        profile.switchAutoWallpaper.isChecked = autoEnabled
+        profile.rowRunNow.isVisible = autoEnabled
+
+        val savedCount = FavoritesStore.getFavorites(this).size
+        profile.profileStats.text = resources.getQuantityString(R.plurals.saved_count, savedCount, savedCount)
+    }
+
     private fun handleAutoWallpaperAction() {
         if (AutoWallpaperManager.isEnabled(this)) {
             AutoWallpaperManager.disable(this)
             analyticsTracker.logEvent("auto_wallpaper_disabled")
-            invalidateOptionsMenu()
+            renderProfile()
             Toast.makeText(this, getString(R.string.auto_wallpaper_disabled), Toast.LENGTH_SHORT).show()
             return
         }
@@ -701,19 +653,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             .setPositiveButton(R.string.auto_wallpaper_enable) { _, _ ->
                 AutoWallpaperManager.enable(this)
                 analyticsTracker.logEvent("auto_wallpaper_enabled")
-                invalidateOptionsMenu()
+                renderProfile()
                 Toast.makeText(this, getString(R.string.auto_wallpaper_enabled), Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
-    }
-
-    private fun getAutoWallpaperMenuTitle(): String {
-        return if (AutoWallpaperManager.isEnabled(this)) {
-            getString(R.string.action_auto_wallpaper_disable)
-        } else {
-            getString(R.string.action_auto_wallpaper_enable)
-        }
     }
 
     private fun runAutoWallpaperNow() {
@@ -727,37 +671,42 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         Toast.makeText(this, getString(R.string.auto_wallpaper_run_now_queued), Toast.LENGTH_SHORT).show()
     }
 
-    private fun readFavoritesSortMode(): FavoritesSortMode {
-        val raw = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .getString(KEY_FAVORITES_SORT_MODE, FavoritesSortMode.RECENT.name)
-        return runCatching { FavoritesSortMode.valueOf(raw ?: FavoritesSortMode.RECENT.name) }
-            .getOrDefault(FavoritesSortMode.RECENT)
+    private fun playStoreUrl() = "https://play.google.com/store/apps/details?id=$packageName"
+
+    @Suppress("DEPRECATION")
+    private fun appVersionName(): String =
+        runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull().orEmpty()
+
+    // ── Feed rendering ──────────────────────────────────────────────────────────
+
+    private fun showStaticFeed(items: List<Model>, source: String, emptyMessage: String, withAds: Boolean = false) {
+        binding.feedRecycler.adapter = PinAdapter(
+            items,
+            onPinClick = { position, model ->
+                analyticsTracker.logEvent("wallpaper_open", mapOf("source" to source, "title" to model.title))
+                openImageDetail(model, FeedContext(items = items, currentIndex = position, source = source))
+            },
+            onFavoriteToggled = { model, nowFavorite -> onPinFavoriteToggled(model, nowFavorite, source) },
+            feedAds = feedAds.takeIf { withAds }
+        )
+        showFeed(items.size, emptyMessage)
+        restoreHomeScrollIfPending()
     }
 
-    private fun saveFavoritesSortMode(mode: FavoritesSortMode) {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit {
-            putString(KEY_FAVORITES_SORT_MODE, mode.name)
-        }
-    }
-
-    private fun getFirebaseFeedContext(currentIndex: Int, source: String): FeedContext? {
-        val currentAdapter = adapter ?: return null
-        if (currentAdapter.itemCount <= 0) return null
-
-        val items = currentAdapter.snapshots.toList()
-        if (items.isEmpty()) return null
-
-        val safeIndex = currentIndex.coerceIn(0, items.lastIndex)
-        return FeedContext(items = items, currentIndex = safeIndex, source = source)
+    private fun onPinFavoriteToggled(model: Model, nowFavorite: Boolean, source: String) {
+        analyticsTracker.logEvent(
+            if (nowFavorite) "favorite_added" else "favorite_removed",
+            mapOf("title" to model.title, "source" to source)
+        )
+        if (currentTab == Tab.SAVED && !nowFavorite) loadFavorites()
     }
 
     private fun openImageDetail(model: Model, feedContext: FeedContext?) {
-        val intent = Intent(this@MainActivity, ImageActivity::class.java).apply {
+        val intent = Intent(this, ImageActivity::class.java).apply {
             putExtra("image", model.image)
             putExtra("title", model.title)
-            // Pass cloudinaryUrl to detail activity if it exists
             if (!model.cloudinaryUrl.isNullOrBlank()) {
-                putExtra("cloudinaryUrl", model.cloudinaryUrl)
+                putExtra(ImageActivity.EXTRA_CLOUDINARY_URL, model.cloudinaryUrl)
             }
         }
 
@@ -769,6 +718,41 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         imageDetailLauncher.launch(intent)
     }
+
+    private fun showLoading() {
+        showOnly(binding.loadingProgress)
+    }
+
+    private fun showFeed(itemCount: Int, emptyMessage: String) {
+        if (itemCount > 0) {
+            showOnly(binding.feedRecycler)
+        } else {
+            binding.emptyStateText.text = emptyMessage
+            showOnly(binding.emptyStateText)
+        }
+    }
+
+    /** Shows exactly one of the content-area views. */
+    private fun showOnly(view: View) {
+        listOf(
+            binding.feedRecycler,
+            binding.categoryGrid,
+            binding.profileScroll,
+            binding.loadingProgress,
+            binding.emptyStateText
+        ).forEach { it.isVisible = it == view }
+    }
+
+    private fun showExitDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.exit_title)
+            .setMessage(R.string.exit_message)
+            .setPositiveButton(R.string.yes) { _, _ -> finish() }
+            .setNegativeButton(R.string.no, null)
+            .show()
+    }
+
+    // ── In-app updates ──────────────────────────────────────────────────────────
 
     private fun checkForAppUpdates(force: Boolean = false) {
         if (!force && !shouldCheckForUpdatesNow()) return
@@ -783,18 +767,12 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     return@addOnSuccessListener
                 }
 
-                // Check if update is available
                 if (updateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
                     val updatePriority = updateInfo.updatePriority()
-                    
-                    // Use immediate update for high priority updates (4-5)
-                    // Use flexible update for normal updates (0-3)
-                    val updateType = if (updatePriority >= 4) {
-                        AppUpdateType.IMMEDIATE
-                    } else {
-                        AppUpdateType.FLEXIBLE
-                    }
-                    
+
+                    // Immediate update for high priority (4-5), flexible otherwise (0-3)
+                    val updateType = if (updatePriority >= 4) AppUpdateType.IMMEDIATE else AppUpdateType.FLEXIBLE
+
                     if (updateInfo.isUpdateTypeAllowed(updateType)) {
                         try {
                             appUpdateManager.startUpdateFlowForResult(
@@ -832,18 +810,15 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 }
             }
     }
-    
+
     private fun showUpdateDownloadedSnackbar() {
-        Snackbar.make(
-            binding.root,
-            "Update downloaded",
-            Snackbar.LENGTH_INDEFINITE
-        ).apply {
-            setAction("RESTART") {
+        Snackbar.make(binding.root, R.string.update_downloaded, Snackbar.LENGTH_INDEFINITE).apply {
+            anchorView = binding.bottomBar
+            setAction(R.string.restart) {
                 analyticsTracker.logEvent("in_app_update_restart_clicked")
                 appUpdateManager.completeUpdate()
             }
-            setActionTextColor(getColor(R.color.colorAccent))
+            setActionTextColor(getColor(R.color.primary))
             show()
         }
     }
@@ -860,44 +835,16 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
     }
 
-    private fun showLoading() {
-        binding.appBarMain.contentMain.loadingProgress.visibility = android.view.View.VISIBLE
-        binding.appBarMain.contentMain.emptyStateText.visibility = android.view.View.GONE
-        binding.appBarMain.contentMain.recyclerView.visibility = android.view.View.GONE
-    }
-
-    private fun showEmpty(message: String) {
-        binding.appBarMain.contentMain.loadingProgress.visibility = android.view.View.GONE
-        binding.appBarMain.contentMain.recyclerView.visibility = android.view.View.GONE
-        binding.appBarMain.contentMain.emptyStateText.text = message
-        binding.appBarMain.contentMain.emptyStateText.visibility = android.view.View.VISIBLE
-    }
-
-    private fun updateListState(itemCount: Int) {
-        binding.appBarMain.contentMain.loadingProgress.visibility = android.view.View.GONE
-        if (itemCount > 0) {
-            binding.appBarMain.contentMain.recyclerView.visibility = android.view.View.VISIBLE
-            binding.appBarMain.contentMain.emptyStateText.visibility = android.view.View.GONE
-        } else {
-            showEmpty(
-                if (isFavoritesMode) getString(R.string.empty_favorites)
-                else getString(R.string.empty_wallpapers)
-            )
-        }
-    }
-
-    // ── AdView lifecycle ────────────────────────────────────────────────────────
+    // ── Lifecycle ───────────────────────────────────────────────────────────────
 
     override fun onResume() {
         super.onResume()
-        binding.appBarMain.contentMain.adView.resume()
-        
+        feedAds.loadIfNeeded()
+
         // Check for stalled or downloaded updates
         appUpdateManager.appUpdateInfo.addOnSuccessListener { updateInfo ->
             when (updateInfo.installStatus()) {
-                InstallStatus.DOWNLOADED -> {
-                    showUpdateDownloadedSnackbar()
-                }
+                InstallStatus.DOWNLOADED -> showUpdateDownloadedSnackbar()
                 InstallStatus.INSTALLING -> {
                     // Update is being installed in the background
                 }
@@ -910,27 +857,25 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                                 updateFlowLauncher,
                                 AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
                             )
-                        } catch (e: IntentSender.SendIntentException) {
+                        } catch (_: IntentSender.SendIntentException) {
                             // Failed to resume update
                         }
                     }
                 }
             }
         }
-        
-        if (isFavoritesMode) loadFavorites()
-    }
 
-    override fun onPause() {
-        binding.appBarMain.contentMain.adView.pause()
-        super.onPause()
+        when (currentTab) {
+            Tab.SAVED -> loadFavorites()
+            Tab.YOU -> renderProfile()
+            else -> {}
+        }
     }
 
     override fun onDestroy() {
         // Prevent Firebase memory leaks by removing listeners
         categoriesListener?.let { categoriesRef?.removeEventListener(it) }
-
-        binding.appBarMain.contentMain.adView.destroy()
+        feedAds.destroy()
         appUpdateManager.unregisterListener(installStateUpdatedListener)
         super.onDestroy()
     }
@@ -941,5 +886,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         private const val KEY_FAVORITES_SORT_MODE = "favorites_sort_mode"
         private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
         private const val UPDATE_CHECK_COOLDOWN_MS = 2L * 24 * 60 * 60 * 1000 // 2 days
+        private const val TRENDING_ITEMS_PER_CATEGORY = 20
+        private const val FEEDBACK_EMAIL = "shubhamskyjnp@gmail.com"
+        private const val STATE_TAB = "state_tab"
     }
 }

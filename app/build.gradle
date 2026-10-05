@@ -18,7 +18,7 @@ android {
         
         // Default to AdMob Test IDs for development
         manifestPlaceholders = [admobAppId: "ca-app-pub-3940256099942544~3347511713"]
-        resValue "string", "banner_ad_unit_id", "ca-app-pub-3940256099942544/6300978111"
+        resValue "string", "native_ad_unit_id", "ca-app-pub-3940256099942544/2247696110"
     }
 
     packaging {
@@ -58,7 +58,9 @@ android {
         release {
             // Use Production AdMob IDs for release builds (including GitHub Actions push to master)
             manifestPlaceholders = [admobAppId: "ca-app-pub-9842479759097106~1672800275"]
-            resValue "string", "banner_ad_unit_id", "ca-app-pub-9842479759097106/9293400570"
+            // TODO: create a "Native advanced" ad unit in AdMob and put its ID here.
+            // While empty, release builds show no in-feed ads (never ship Google's test ID).
+            resValue "string", "native_ad_unit_id", ""
 
             if (signingConfigs.release.storeFile != null) {
                 signingConfig signingConfigs.release

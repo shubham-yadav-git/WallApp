@@ -1,18 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">WallApp</string>
-    <string name="navigation_drawer_open">Open navigation drawer</string>
-    <string name="navigation_drawer_close">Close navigation drawer</string>
-    <string name="nav_header_desc">Navigation header</string>
     <string name="action_settings">Settings</string>
     <string name="search">Search</string>
     <string name="contact_email">shineupindia@gmail.com</string>
     <string name="contact">shineupindia@gmail.com\nshubhamskyjnp@gmail.com</string>
-    <string name="banner_ad_unit_id">ca-app-pub-9842479759097106/9293400570</string>
 
     <string name="menu_home">Trending</string>
     <string name="wallpaper_app">WallApp</string>
-    <string name="user_name">PIHU</string>
     <string name="latest_superheros_and_nature">Latest Superheroes and Nature</string>
     <string name="save">Save</string>
     <string name="favorite">Favorite</string>
@@ -23,7 +18,7 @@
     <string name="sort">Sort</string>
     <string name="action_auto_wallpaper_enable">Enable daily auto wallpaper</string>
     <string name="action_auto_wallpaper_disable">Disable daily auto wallpaper</string>
-    <string name="action_auto_wallpaper_run_now">Run auto wallpaper now</string>
+    
     <string name="auto_wallpaper_title">Daily auto wallpaper</string>
     <string name="auto_wallpaper_message">Automatically change your home screen wallpaper every day using your favorite wallpapers.</string>
     <string name="auto_wallpaper_enable">Enable</string>
@@ -31,6 +26,7 @@
     <string name="auto_wallpaper_requires_favorites">Add at least one favorite wallpaper before enabling daily auto wallpaper.</string>
     <string name="auto_wallpaper_enabled">Daily auto wallpaper enabled.</string>
     <string name="auto_wallpaper_disabled">Daily auto wallpaper disabled.</string>
+    <string name="auto_wallpaper_run_now">Change wallpaper now</string>
     <string name="auto_wallpaper_run_now_queued">Auto wallpaper update queued.</string>
     <string name="sort_favorites_title">Sort favorites</string>
     <string name="sort_recent">Recent</string>
@@ -49,29 +45,55 @@
     <string name="wallpaper_both_success">Wallpaper set successfully</string>
     <string name="cancel">Cancel</string>
     <string name="premium_wallpapers">Premium Wallpapers</string>
-    <string name="app_version">v1.2.0</string>
     <string name="wallpaper_image_desc">Wallpaper image</string>
     <string name="loading_wallpapers">Loading wallpapers…</string>
     <string name="empty_wallpapers">No wallpapers found.</string>
     <string name="empty_search_results">No wallpapers match your search.</string>
-    <string name="empty_favorites">No favorites yet. Tap Favorite on a wallpaper to save it.</string>
+    <string name="empty_favorites">Nothing saved yet. Tap the heart on any wallpaper to keep it here.</string>
     <string name="swipe_hint">Swipe left or right to browse wallpapers</string>
     <string name="got_it">Got it</string>
     <string name="no_next_wallpaper">You reached the last wallpaper.</string>
     <string name="no_previous_wallpaper">You are on the first wallpaper.</string>
-    <string name="nav_tagline">Curated daily backgrounds</string>
-    <string name="nav_section_discover">Discover</string>
-    <string name="nav_section_categories">Categories</string>
-    <string name="nav_section_support">Support &amp; community</string>
-    <string name="nav_section_legal">Legal</string>
-    <string name="nav_trending">Trending now</string>
-    <string name="nav_favorites">Favorites</string>
     <string name="nav_send_feedback">Send feedback</string>
     <string name="nav_rate_app">Rate app</string>
     <string name="nav_share_friends">Share with friends</string>
     <string name="nav_privacy_policy">Privacy policy</string>
     <string name="update_check_failed">Could not check for app updates.</string>
     <string name="no_updates_available">You\'re already on the latest version!</string>
+
+    <!-- Pinterest-style navigation -->
+    <string name="tab_home">Home</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_saved">Saved</string>
+    <string name="tab_you">You</string>
+    <string name="category_all">All</string>
+    <string name="search_hint">Search wallpapers</string>
+    <string name="search_explore">Explore categories</string>
+    <string name="clear_search">Clear search</string>
+    <string name="more_like_this">More like this</string>
+    <string name="ad_badge">Ad</string>
+    <string name="sponsored">Sponsored</string>
+    <string name="position_format">%1$d of %2$d</string>
+    <string name="back">Back</string>
+    <string name="download">Download</string>
+    <string name="settings_section_wallpaper">Wallpaper</string>
+    <string name="settings_section_app">App</string>
+    <string name="auto_wallpaper_subtitle">Rotate through your saved wallpapers every day</string>
+    <string name="check_for_updates">Check for updates</string>
+    <string name="version_format">Version %1$s</string>
+    <string name="exit_title">Exit app</string>
+    <string name="exit_message">Are you sure you want to exit?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="update_downloaded">Update downloaded</string>
+    <string name="restart">Restart</string>
+    <string name="share_via">Share via</string>
+    <string name="choose_email_client">Choose email client</string>
+    <string name="feedback_subject">Feedback for WallApp</string>
+    <plurals name="saved_count">
+        <item quantity="one">%d saved wallpaper</item>
+        <item quantity="other">%d saved wallpapers</item>
+    </plurals>
 
     <string name="privacy_policy_title">Privacy Policy</string>
     <string name="privacy_policy_last_updated">Last updated: March 19, 2026</string>

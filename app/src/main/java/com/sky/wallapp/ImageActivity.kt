@@ -23,14 +23,17 @@ import android.view.animation.AnimationUtils
 import android.view.animation.AccelerateInterpolator
 import android.widget.Toast
 import android.widget.RadioButton
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.graphics.Insets
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.google.android.material.button.MaterialButton
 import com.bumptech.glide.Glide
 import com.google.android.play.core.review.ReviewManager
@@ -44,6 +47,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import androidx.core.content.edit
 import kotlin.math.abs
+import kotlin.math.min
 
 class ImageActivity : AppCompatActivity() {
 
@@ -91,19 +95,25 @@ class ImageActivity : AppCompatActivity() {
         private const val SWIPE_VELOCITY_THRESHOLD = 120
         private const val ENABLE_CIRCULAR_SWIPE = true
         private val WALLPAPER_HAPTIC_STYLE = HapticStyle.CONFIRM_REJECT_WITH_FALLBACK
+        private const val IMAGE_HEIGHT_FRACTION = 0.72f
+        private const val MORE_LIKE_THIS_LIMIT = 30
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         binding = ActivityImageBinding.inflate(layoutInflater)
         setContentView(binding.root)
         analyticsTracker = AnalyticsTracker(FirebaseAnalytics.getInstance(this))
         reviewManager = ReviewManagerFactory.create(this)
 
-        setSupportActionBar(binding.toolbar)
-        supportActionBar?.apply {
-            setDisplayHomeAsUpEnabled(true)
-            setDisplayShowTitleEnabled(false)
+        binding.btnBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        // Plain staggered manager: the feed's GAP_HANDLING_NONE variant measures to 0 height inside a NestedScrollView.
+        binding.moreRecycler.layoutManager =
+            StaggeredGridLayoutManager(PinAdapter.spanCount(this), StaggeredGridLayoutManager.VERTICAL)
+        // Large preview that still leaves the action row visible on first load.
+        binding.imageView.updateLayoutParams {
+            height = (resources.displayMetrics.heightPixels * IMAGE_HEIGHT_FRACTION).toInt()
         }
 
         hydrateSwipeState(savedInstanceState)
@@ -280,27 +290,18 @@ class ImageActivity : AppCompatActivity() {
     }
 
     private fun applySystemBarInsets() {
-        val initialTopPadding = binding.toolbar.paddingTop
-        val hintLayoutParams = binding.swipeHintCard.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
-        val favoriteLayoutParams = binding.btnFavorite.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
-        val actionLayoutParams = binding.actionCard.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
-        val initialHintTopMargin = hintLayoutParams.topMargin
-        val initialFavoriteTopMargin = favoriteLayoutParams.topMargin
-        val initialActionBottomMargin = actionLayoutParams.bottomMargin
+        val backLayoutParams = binding.btnBack.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
+        val initialBackTopMargin = backLayoutParams.topMargin
+        val initialScrollBottomPadding = binding.detailScroll.paddingBottom
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
-            val systemBars: Insets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            binding.toolbar.updatePadding(top = initialTopPadding + systemBars.top)
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
 
-            hintLayoutParams.topMargin = initialHintTopMargin + systemBars.top
-            binding.swipeHintCard.layoutParams = hintLayoutParams
+            // The image runs under the status bar; only the back button needs to clear it.
+            backLayoutParams.topMargin = initialBackTopMargin + systemBars.top
+            binding.btnBack.layoutParams = backLayoutParams
 
-            favoriteLayoutParams.topMargin = initialFavoriteTopMargin + systemBars.top
-            binding.btnFavorite.layoutParams = favoriteLayoutParams
-
-            actionLayoutParams.bottomMargin = initialActionBottomMargin + systemBars.bottom
-            binding.actionCard.layoutParams = actionLayoutParams
-
+            binding.detailScroll.updatePadding(bottom = initialScrollBottomPadding + systemBars.bottom)
             insets
         }
 
@@ -460,7 +461,7 @@ class ImageActivity : AppCompatActivity() {
     private fun applyModel(model: Model) {
         titlev = model.title
         imageUrl = model.image
-        displayUrl = if (!model.cloudinaryUrl.isNullOrBlank()) model.cloudinaryUrl else model.image
+        displayUrl = model.displayUrl
     }
 
     private fun renderCurrentWallpaper() {
@@ -471,6 +472,52 @@ class ImageActivity : AppCompatActivity() {
 
         val animFadeIn = AnimationUtils.loadAnimation(applicationContext, R.anim.fade_in)
         binding.imageView.startAnimation(animFadeIn)
+
+        binding.titleText.text = titlev
+        binding.titleText.isVisible = !titlev.isNullOrBlank()
+        binding.subtitleText.isVisible = swipeItems.size > 1
+        if (swipeItems.size > 1) {
+            binding.subtitleText.text = getString(R.string.position_format, currentIndex + 1, swipeItems.size)
+        }
+        renderMoreLikeThis()
+    }
+
+    /** Masonry grid of the next wallpapers from the same feed; tapping one opens it in place. */
+    private fun renderMoreLikeThis() {
+        val count = min(MORE_LIKE_THIS_LIMIT, swipeItems.size - 1)
+        if (count <= 0) {
+            binding.moreTitle.isVisible = false
+            binding.moreRecycler.isVisible = false
+            return
+        }
+
+        val indices = (1..count).map { (currentIndex + it) % swipeItems.size }
+        binding.moreRecycler.adapter = PinAdapter(
+            indices.map { swipeItems[it] },
+            onPinClick = { position, _ -> showWallpaperAt(indices[position]) },
+            onFavoriteToggled = { model, nowFavorite ->
+                setResult(RESULT_OK, Intent().putExtra(EXTRA_FAVORITES_CHANGED, true))
+                analyticsTracker.logEvent(
+                    if (nowFavorite) "favorite_added" else "favorite_removed",
+                    mapOf("title" to model.title, "source" to swipeSource, "trigger" to "more_like_this")
+                )
+            }
+        )
+        binding.moreTitle.isVisible = true
+        binding.moreRecycler.isVisible = true
+    }
+
+    private fun showWallpaperAt(index: Int) {
+        if (index !in swipeItems.indices) return
+        currentIndex = index
+        swipeCount += 1
+        applyModel(swipeItems[currentIndex])
+        renderCurrentWallpaper()
+        binding.detailScroll.smoothScrollTo(0, 0)
+        analyticsTracker.logEvent(
+            "wallpaper_more_like_this_open",
+            mapOf("source" to swipeSource, "index" to currentIndex.toString(), "title" to titlev)
+        )
     }
 
     private fun openWallDialog() {
@@ -715,11 +762,6 @@ class ImageActivity : AppCompatActivity() {
                         analyticsTracker.logEvent("in_app_review_requested")
                     }
             }
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        onBackPressedDispatcher.onBackPressed()
-        return true
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

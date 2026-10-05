@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="24dp">
+
+    <!-- Profile header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="@dimen/screen_side_padding"
+        android:paddingVertical="12dp">
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:background="@color/splash_background"
+            android:importantForAccessibility="no"
+            android:padding="12dp"
+            android:scaleType="centerInside"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Pill"
+            app:srcCompat="@drawable/wp_logo_512dp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/app_name"
+                android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+                android:textColor="@color/onSurface"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/profile_stats"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                android:textColor="@color/onSurfaceVariant"
+                tools:text="12 saved wallpapers" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:paddingHorizontal="@dimen/screen_side_padding"
+        android:paddingBottom="4dp"
+        android:text="@string/settings_section_wallpaper"
+        android:textAppearance="@style/TextAppearance.App.SectionTitle" />
+
+    <!-- Daily auto wallpaper toggle -->
+    <LinearLayout
+        android:id="@+id/row_auto_wallpaper"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackground"
+        android:gravity="center_vertical"
+        android:minHeight="72dp"
+        android:orientation="horizontal"
+        android:paddingHorizontal="@dimen/screen_side_padding">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_autorenew_24"
+            app:tint="@color/onSurface" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/auto_wallpaper_title"
+                android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+                android:textColor="@color/onSurface" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/auto_wallpaper_subtitle"
+                android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                android:textColor="@color/onSurfaceVariant" />
+
+        </LinearLayout>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_auto_wallpaper"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:clickable="false"
+            android:focusable="false" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/row_run_now"
+        style="@style/Widget.App.SettingsRow"
+        android:drawableStart="@drawable/ic_wallpaper_white_24dp"
+        android:text="@string/auto_wallpaper_run_now" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:paddingHorizontal="@dimen/screen_side_padding"
+        android:paddingBottom="4dp"
+        android:text="@string/settings_section_app"
+        android:textAppearance="@style/TextAppearance.App.SectionTitle" />
+
+    <TextView
+        android:id="@+id/row_check_update"
+        style="@style/Widget.App.SettingsRow"
+        android:drawableStart="@drawable/ic_update_24"
+        android:text="@string/check_for_updates" />
+
+    <TextView
+        android:id="@+id/row_rate"
+        style="@style/Widget.App.SettingsRow"
+        android:drawableStart="@drawable/ic_rate_review_24dp"
+        android:text="@string/nav_rate_app" />
+
+    <TextView
+        android:id="@+id/row_share"
+        style="@style/Widget.App.SettingsRow"
+        android:drawableStart="@drawable/ic_share_white_24dp"
+        android:text="@string/nav_share_friends" />
+
+    <TextView
+        android:id="@+id/row_feedback"
+        style="@style/Widget.App.SettingsRow"
+        android:drawableStart="@drawable/ic_contact_mail"
+        android:text="@string/nav_send_feedback" />
+
+    <TextView
+        android:id="@+id/row_privacy"
+        style="@style/Widget.App.SettingsRow"
+        android:drawableStart="@drawable/ic_shield_24"
+        android:text="@string/nav_privacy_policy" />
+
+    <TextView
+        android:id="@+id/version_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="center"
+        android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
+        android:textColor="@color/onSurfaceVariant"
+        tools:text="Version 1.2.7" />
+
+</LinearLayout>
