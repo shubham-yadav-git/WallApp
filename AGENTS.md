@@ -49,9 +49,8 @@ only automated check that catches most mistakes. There is no meaningful test sui
   `resValue` in `app/build.gradle`. Debug builds use Google's test IDs. Never put
   production ad unit IDs in debug code paths, never ship Google's test IDs in release,
   and never click real ads while testing.
-- Ads are **native in-feed "sponsored pins"** (no banner). The release
-  `native_ad_unit_id` is empty until a Native advanced unit is created in AdMob;
-  while empty, `FeedAds` is disabled and release builds show no ads.
+- Ads are **native in-feed "sponsored pins"** (no banner). `FeedAds` is disabled
+  if `native_ad_unit_id` is blank.
 
 ## Source map (`app/src/main/java/com/sky/wallapp/`)
 
