@@ -7,24 +7,81 @@
     android:orientation="vertical"
     android:paddingBottom="24dp">
 
-    <!-- Profile header -->
+    <!-- Account: signed out -->
     <LinearLayout
+        android:id="@+id/account_signed_out"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="@dimen/screen_side_padding"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/pill_soft_bg"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/sync_banner_title"
+            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textColor="@color/onSurface"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/sync_banner_text"
+            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+            android:textColor="@color/onSurfaceVariant" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/account_google"
+            style="@style/Widget.App.Pill.Ink"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/continue_with_google"
+            app:icon="@drawable/ic_google_g"
+            app:iconTint="@null" />
+
+    </LinearLayout>
+
+    <!-- Account: signed in -->
+    <LinearLayout
+        android:id="@+id/account_signed_in"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingHorizontal="@dimen/screen_side_padding"
-        android:paddingVertical="12dp">
+        android:paddingVertical="8dp"
+        android:visibility="gone">
 
-        <com.google.android.material.imageview.ShapeableImageView
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:background="@color/splash_background"
-            android:importantForAccessibility="no"
-            android:padding="12dp"
-            android:scaleType="centerInside"
-            app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Pill"
-            app:srcCompat="@drawable/wp_logo_512dp" />
+        <FrameLayout
+            android:layout_width="56dp"
+            android:layout_height="56dp">
+
+            <TextView
+                android:id="@+id/account_initial"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/brand_mark_bg"
+                android:backgroundTint="@color/onSurface"
+                android:gravity="center"
+                android:importantForAccessibility="no"
+                android:textColor="@color/surface"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/account_avatar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:scaleType="centerCrop"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Pill" />
+
+        </FrameLayout>
 
         <LinearLayout
             android:layout_width="0dp"
@@ -34,25 +91,49 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/account_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/app_name"
-                android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
                 android:textColor="@color/onSurface"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                tools:text="Shubham" />
 
             <TextView
-                android:id="@+id/profile_stats"
+                android:id="@+id/account_email"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
                 android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
                 android:textColor="@color/onSurfaceVariant"
-                tools:text="12 saved wallpapers" />
+                tools:text="someone@gmail.com" />
+
+            <TextView
+                android:id="@+id/account_sync"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:drawablePadding="6dp"
+                android:gravity="center_vertical"
+                android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                android:textColor="@color/onSurfaceVariant"
+                tools:text="Saved items synced" />
 
         </LinearLayout>
 
     </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/account_sign_out"
+        style="@style/Widget.App.Pill.Small.Soft"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="88dp"
+        android:text="@string/sign_out"
+        android:visibility="gone" />
 
     <TextView
         android:layout_width="match_parent"

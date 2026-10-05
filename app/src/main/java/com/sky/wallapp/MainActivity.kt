@@ -2,9 +2,12 @@ package com.sky.wallapp
 
 import android.content.Intent
 import android.content.IntentSender
+import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Parcelable
-import android.util.Log
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.Toast
@@ -13,6 +16,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -23,7 +27,12 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.core.widget.doAfterTextChanged
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
+import com.bumptech.glide.Glide
 import com.google.android.gms.ads.MobileAds
 import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -36,66 +45,62 @@ import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
 import com.sky.wallapp.databinding.ActivityMainBinding
+import kotlinx.coroutines.launch
+import java.text.NumberFormat
 
 /**
- * Pinterest-style home: masonry feed with category pills (Home), search over the loaded
- * wallpaper pool with category tiles (Search), favorites (Saved), and app settings (You).
+ * Home (masonry feed with search and category chips), Saved (favourites, collections, recently
+ * viewed) and You (account + settings). Behaviour mirrors the website's PublicHome / SavedView.
  */
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), FeedListener {
 
     private enum class Tab(val menuId: Int) {
         HOME(R.id.nav_home),
-        SEARCH(R.id.nav_search),
         SAVED(R.id.nav_saved),
         YOU(R.id.nav_you)
     }
 
-    private enum class FavoritesSortMode {
-        RECENT,
-        ALPHABETICAL
-    }
-
-    private data class FeedContext(
-        val items: List<Model>,
-        val currentIndex: Int,
-        val source: String
-    )
-
     private lateinit var binding: ActivityMainBinding
-    private lateinit var firebaseDatabase: FirebaseDatabase
     private lateinit var analyticsTracker: AnalyticsTracker
     private lateinit var appUpdateManager: AppUpdateManager
-
     private lateinit var feedAds: FeedAds
+    private lateinit var adapter: FeedAdapter
 
     private var currentTab = Tab.HOME
-    private val categoriesList = mutableListOf<Category>()
-    private var categoryAdapter: CategoryAdapter? = null
+    private var savedTab = SavedTab.FAVORITES
+    private var activeCategory = ALL
+    private var rawQuery = ""
+    private var query = "" // debounced, trimmed, lowercase
+    private val handler = Handler(Looper.getMainLooper())
+    private val applyQuery = Runnable {
+        val next = rawQuery.trim().lowercase()
+        if (next != query) {
+            query = next
+            render(scrollToTop = true)
+        }
+    }
 
-    /** Selected home category; null means "All" (the trending mix). */
-    private var selectedCategory: Category? = null
+    private var repo = WallpaperRepository.State()
+    private var saved = SavedStore.emptyState()
+    private var account = SavedSync.Account()
+
+    // Home feed list cache (filtering + sorting 10k+ records is only redone when inputs change)
+    private var feedInputs: Triple<List<Wallpaper>, String, String>? = null
+    private var feedList: List<Wallpaper> = emptyList()
+
+    // Paged pins of the current screen: revealed 30 at a time once their shapes are known
+    private var pinListKey = ""
+    private var pinList: List<Wallpaper> = emptyList()
+    private var revealed = 0
+    private var measuring = false
+    private var generation = 0
+
+    private var renderedChips: List<Pair<String, String>> = emptyList()
     private var suppressChipEvents = false
-
-    /** First [TRENDING_ITEMS_PER_CATEGORY] items of every category, shuffled. Also the search pool. */
-    private val trendingItems = mutableListOf<Model>()
-    private var trendingLoaded = false
-    private var trendingRequestId = 0
-
-    private var searchQuery = ""
-    private var favoritesSortMode = FavoritesSortMode.RECENT
-
-    /** Home feed scroll position, restored when coming back from another tab. */
-    private var pendingHomeScrollState: Parcelable? = null
-
-    // Firebase state management to prevent leaks
-    private var categoriesRef: DatabaseReference? = null
-    private var categoriesListener: ValueEventListener? = null
+    private val tabScroll = mutableMapOf<Tab, Parcelable?>()
+    private var pendingPin: String? = null
+    private var migrated = false
 
     private val installStateUpdatedListener = InstallStateUpdatedListener { state ->
         when (state.installStatus()) {
@@ -113,27 +118,29 @@ class MainActivity : AppCompatActivity() {
     private val updateFlowLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result: ActivityResult ->
-        if (result.resultCode == RESULT_OK) {
-            analyticsTracker.logEvent("in_app_update_flow_accepted")
-        } else {
-            analyticsTracker.logEvent("in_app_update_flow_dismissed")
-        }
+        analyticsTracker.logEvent(
+            if (result.resultCode == RESULT_OK) "in_app_update_flow_accepted" else "in_app_update_flow_dismissed"
+        )
     }
 
-    private val imageDetailLauncher = registerForActivityResult(
+    private val detailLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result: ActivityResult ->
-        val favoritesChanged = result.data?.getBooleanExtra(
-            ImageActivity.EXTRA_FAVORITES_CHANGED,
-            false
-        ) == true
-        if (!favoritesChanged) return@registerForActivityResult
-
-        if (currentTab == Tab.SAVED) {
-            loadFavorites()
-        } else {
-            binding.feedRecycler.adapter?.notifyDataSetChanged()
+        val data = result.data ?: return@registerForActivityResult
+        data.getStringExtra(ImageActivity.EXTRA_SELECT_CATEGORY)?.let { path ->
+            binding.searchInput.setText("")
+            goHome(path)
         }
+        if (data.getBooleanExtra(ImageActivity.EXTRA_OPEN_SAVED, false)) goSaved(SavedTab.FAVORITES)
+    }
+
+    private val collectionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result: ActivityResult ->
+        val name = result.data?.getStringExtra(CollectionActivity.EXTRA_DELETED_NAME) ?: return@registerForActivityResult
+        val undo = CollectionActivity.pendingUndo
+        CollectionActivity.pendingUndo = null
+        snackbar(getString(R.string.deleted_collection, name), getString(R.string.undo)) { undo?.invoke() }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -143,42 +150,92 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        firebaseDatabase = FirebaseDatabase.getInstance()
         analyticsTracker = AnalyticsTracker(FirebaseAnalytics.getInstance(this))
         appUpdateManager = AppUpdateManagerFactory.create(this)
         appUpdateManager.registerListener(installStateUpdatedListener)
-        favoritesSortMode = readFavoritesSortMode()
         analyticsTracker.logEvent("app_open")
         checkForAppUpdates()
 
-        // Sponsored pins in the Home and Search feeds (native ads styled like wallpapers)
+        // Sponsored pins in the Home feed (native ads styled like wallpapers)
         MobileAds.initialize(this) {}
         feedAds = FeedAds(this, getString(R.string.native_ad_unit_id))
-        feedAds.onAdsChanged = { (binding.feedRecycler.adapter as? PinAdapter)?.refreshAds() }
+        feedAds.onAdsChanged = { if (currentTab == Tab.HOME) render() }
         feedAds.loadIfNeeded()
 
+        SavedSync.init(this)
+        WallpaperRepository.start(this)
+
         setupInsets()
-        setupLists()
-        setupSearch()
+        setupFeed()
+        setupHeader()
         setupProfile()
         setupBottomNav()
         setupBackHandling()
-        renderCategoryChips()
-        loadCategories()
+
+        savedInstanceState?.let { state ->
+            activeCategory = state.getString(STATE_CATEGORY, ALL)
+            savedTab = SavedTab.entries.firstOrNull { it.name == state.getString(STATE_SAVED_TAB) } ?: SavedTab.FAVORITES
+        }
+        handleDeepLink(intent)
 
         val restoredTab = savedInstanceState?.getString(STATE_TAB)
             ?.let { name -> Tab.entries.firstOrNull { it.name == name } }
-            ?: Tab.HOME
-        if (restoredTab == Tab.HOME) {
-            selectTab(Tab.HOME)
-        } else {
-            binding.bottomNav.selectedItemId = restoredTab.menuId
-        }
+            ?: currentTab
+        selectTab(restoredTab)
+        if (restoredTab != Tab.HOME) binding.bottomNav.selectedItemId = restoredTab.menuId
+
+        observe()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleDeepLink(intent)
+        render()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_TAB, currentTab.name)
+        outState.putString(STATE_CATEGORY, activeCategory)
+        outState.putString(STATE_SAVED_TAB, savedTab.name)
         super.onSaveInstanceState(outState)
+    }
+
+    private fun observe() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch { WallpaperRepository.state.collect { repo = it; onRepoChanged() } }
+                launch { SavedRepository.state.collect { saved = it; onSavedChanged() } }
+                launch { SavedSync.account.collect { account = it; renderAccount(); render() } }
+            }
+        }
+    }
+
+    private fun onRepoChanged() {
+        if (repo.allLoaded && !migrated) {
+            migrated = true
+            SavedRepository.migrateLegacyFavorites(repo.records)
+        }
+        // Unknown category (e.g. from a link): fall back to All once categories are known
+        if (repo.categories.isNotEmpty() && activeCategory != ALL && activeCategory != POPULAR &&
+            repo.categories.none { it.path == activeCategory }
+        ) {
+            activeCategory = ALL
+        }
+        renderChips()
+        openPendingPin()
+        render()
+    }
+
+    private fun onSavedChanged() {
+        val count = saved.favorites.size
+        binding.bottomNav.getOrCreateBadge(R.id.nav_saved).apply {
+            isVisible = count > 0
+            number = count
+            maxNumber = 99
+            backgroundColor = ContextCompat.getColor(this@MainActivity, R.color.primary)
+            badgeTextColor = ContextCompat.getColor(this@MainActivity, R.color.white)
+        }
+        render()
     }
 
     // ── Setup ───────────────────────────────────────────────────────────────────
@@ -194,25 +251,47 @@ class MainActivity : AppCompatActivity() {
         // Keep the last row of every scrolling list clear of the bottom navigation.
         binding.bottomBar.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
             val bottomSpace = bottom - top + resources.getDimensionPixelSize(R.dimen.pin_gutter)
-            listOf(binding.feedRecycler, binding.categoryGrid, binding.profileScroll).forEach {
+            listOf(binding.feedRecycler, binding.profileScroll).forEach {
                 if (it.paddingBottom != bottomSpace) it.updatePadding(bottom = bottomSpace)
             }
         }
     }
 
-    private fun setupLists() {
-        binding.feedRecycler.layoutManager = PinAdapter.newLayoutManager(this)
+    private fun setupFeed() {
+        adapter = FeedAdapter(this)
+        binding.feedRecycler.layoutManager = FeedAdapter.newLayoutManager(this)
+        binding.feedRecycler.adapter = adapter
+        binding.feedRecycler.itemAnimator = null // tiles appear in place; no reflow animation
+        binding.feedRecycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) = checkLoadMore()
+        })
+    }
 
-        binding.categoryGrid.layoutManager = GridLayoutManager(this, PinAdapter.spanCount(this))
-        categoryAdapter = CategoryAdapter(categoriesList, firebaseDatabase) { category ->
-            analyticsTracker.logEvent(
-                "search_category_tile",
-                mapOf("category_name" to category.name, "category_path" to category.path)
-            )
-            categoryAdapter?.clearSelection()
-            openCategoryOnHome(category)
+    private fun setupHeader() {
+        binding.brand.setOnClickListener {
+            binding.searchInput.setText("")
+            selectCategory(ALL)
         }
-        binding.categoryGrid.adapter = categoryAdapter
+
+        binding.searchInput.doAfterTextChanged { text ->
+            val next = text?.toString().orEmpty()
+            // Like Pinterest, starting a search looks across every category
+            if (rawQuery.isEmpty() && next.isNotEmpty() && activeCategory != ALL) selectCategory(ALL)
+            rawQuery = next
+            binding.searchClear.isVisible = next.isNotEmpty()
+            handler.removeCallbacks(applyQuery)
+            handler.postDelayed(applyQuery, SEARCH_DEBOUNCE_MS)
+        }
+        binding.searchInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId != EditorInfo.IME_ACTION_SEARCH) return@setOnEditorActionListener false
+            hideKeyboard()
+            if (rawQuery.isNotBlank()) analyticsTracker.logEvent("search", mapOf("search_term" to rawQuery.trim()))
+            true
+        }
+        binding.searchClear.setOnClickListener { binding.searchInput.setText("") }
+
+        binding.headerSignIn.setOnClickListener { signIn() }
+        binding.headerAvatar.setOnClickListener { binding.bottomNav.selectedItemId = R.id.nav_you }
     }
 
     private fun setupBottomNav() {
@@ -222,10 +301,8 @@ class MainActivity : AppCompatActivity() {
             true
         }
         binding.bottomNav.setOnItemReselectedListener {
-            // Tapping the active tab again scrolls back to the top, like most feed apps.
             binding.appBar.setExpanded(true)
             binding.feedRecycler.smoothScrollToPosition(0)
-            binding.categoryGrid.smoothScrollToPosition(0)
             binding.profileScroll.smoothScrollTo(0, 0)
         }
     }
@@ -234,356 +311,423 @@ class MainActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
-                    currentTab == Tab.SEARCH && searchQuery.isNotEmpty() -> binding.searchInput.setText("")
                     currentTab != Tab.HOME -> binding.bottomNav.selectedItemId = R.id.nav_home
-                    selectedCategory != null -> checkChipFor(null, notify = true)
+                    rawQuery.isNotEmpty() -> binding.searchInput.setText("")
+                    activeCategory != ALL -> selectCategory(ALL)
                     else -> showExitDialog()
                 }
             }
         })
     }
 
-    // ── Tabs ────────────────────────────────────────────────────────────────────
+    // ── Navigation ──────────────────────────────────────────────────────────────
 
     private fun selectTab(tab: Tab) {
-        if (currentTab == Tab.HOME && tab != Tab.HOME) {
-            pendingHomeScrollState = binding.feedRecycler.layoutManager?.onSaveInstanceState()
-        }
+        if (tab != currentTab) tabScroll[currentTab] = binding.feedRecycler.layoutManager?.onSaveInstanceState()
+        val restore = if (tab != currentTab) tabScroll[tab] else null
         currentTab = tab
         binding.appBar.setExpanded(true, false)
-        if (tab != Tab.SEARCH) hideKeyboard()
+        hideKeyboard()
 
+        binding.homeHeader.isVisible = tab == Tab.HOME
         binding.categoryScroll.isVisible = tab == Tab.HOME
-        binding.titleRow.isVisible = tab == Tab.SAVED || tab == Tab.YOU
-        binding.sortButton.isVisible = tab == Tab.SAVED
-        binding.searchBar.isVisible = tab == Tab.SEARCH
-        binding.searchSectionTitle.isVisible = tab == Tab.SEARCH && searchQuery.isEmpty()
+        binding.screenTitle.isVisible = tab != Tab.HOME
         binding.screenTitle.setText(if (tab == Tab.YOU) R.string.tab_you else R.string.tab_saved)
+        binding.feedRecycler.isVisible = tab != Tab.YOU
+        binding.profileScroll.isVisible = tab == Tab.YOU
 
-        when (tab) {
-            Tab.HOME -> renderHome()
-            Tab.SEARCH -> renderSearch()
-            Tab.SAVED -> loadFavorites()
-            Tab.YOU -> renderProfile()
-        }
-        analyticsTracker.logEvent("tab_open", mapOf("tab" to tab.name.lowercase()))
+        pinListKey = "" // pins of the new screen start from the first batch
+        render()
+        if (restore != null) binding.feedRecycler.post { binding.feedRecycler.layoutManager?.onRestoreInstanceState(restore) }
     }
 
-    // ── Home ────────────────────────────────────────────────────────────────────
-
-    private fun renderHome() {
-        val category = selectedCategory
-        if (category == null) {
-            if (trendingLoaded) {
-                showStaticFeed(trendingItems.toList(), "trending", getString(R.string.empty_wallpapers), withAds = true)
-            } else {
-                showLoading()
-            }
-        } else {
-            showCategoryFeed(category)
-        }
+    private fun goHome(category: String = activeCategory) {
+        if (currentTab != Tab.HOME) binding.bottomNav.selectedItemId = R.id.nav_home
+        selectCategory(category)
     }
 
-    private fun loadCategories() {
-        categoriesRef = firebaseDatabase.getReference("categories")
-        Log.d(TAG, "Loading categories from: $categoriesRef")
-
-        categoriesListener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                categoriesList.clear()
-                snapshot.children.forEach { postSnapshot ->
-                    postSnapshot.getValue(Category::class.java)?.let { categoriesList.add(it) }
-                }
-                Log.d(TAG, "Categories loaded: ${categoriesList.size}")
-
-                // Drop a selection whose category no longer exists.
-                if (selectedCategory != null && categoriesList.none { it.path == selectedCategory?.path }) {
-                    selectedCategory = null
-                }
-                renderCategoryChips()
-                categoryAdapter?.notifyDataSetChanged()
-                if (currentTab == Tab.SEARCH && searchQuery.isEmpty()) renderSearch()
-                loadTrending()
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e(TAG, "Failed to load categories: ${error.message} (code ${error.code})")
-                trendingLoaded = true
-                if (currentTab == Tab.HOME && selectedCategory == null) {
-                    showStaticFeed(emptyList(), "trending", getString(R.string.empty_wallpapers))
-                }
-            }
-        }
-
-        categoriesRef?.addValueEventListener(categoriesListener!!)
+    private fun goSaved(tab: SavedTab) {
+        savedTab = tab
+        if (currentTab != Tab.SAVED) binding.bottomNav.selectedItemId = R.id.nav_saved else render(scrollToTop = true)
     }
 
-    private fun loadTrending() {
-        val requestId = ++trendingRequestId
-        val paths = categoriesList.mapNotNull { it.path?.takeIf(String::isNotBlank) }
-        if (paths.isEmpty()) {
-            onTrendingLoaded(emptyList())
-            return
-        }
-
-        val collected = mutableListOf<Model>()
-        var remaining = paths.size
-
-        // Count failures too, so one failing category can't leave the feed loading forever.
-        fun onCategoryDone() {
-            remaining -= 1
-            if (remaining == 0 && requestId == trendingRequestId) {
-                onTrendingLoaded(collected.shuffled())
-            }
-        }
-
-        paths.forEach { path ->
-            firebaseDatabase.getReference(path)
-                .limitToFirst(TRENDING_ITEMS_PER_CATEGORY)
-                .addListenerForSingleValueEvent(object : ValueEventListener {
-                    override fun onDataChange(snapshot: DataSnapshot) {
-                        snapshot.children.mapNotNullTo(collected) { it.getValue(Model::class.java) }
-                        onCategoryDone()
-                    }
-
-                    override fun onCancelled(error: DatabaseError) {
-                        Log.e(TAG, "Error loading $path: ${error.message}")
-                        onCategoryDone()
-                    }
-                })
-        }
+    private fun selectCategory(path: String) {
+        val changed = path != activeCategory
+        activeCategory = path
+        checkChip(path)
+        binding.appBar.setExpanded(true)
+        if (changed) analyticsTracker.logEvent("select_content", mapOf("content_type" to "category", "item_id" to path))
+        render(scrollToTop = true)
     }
 
-    private fun onTrendingLoaded(items: List<Model>) {
-        trendingItems.clear()
-        trendingItems.addAll(items)
-        trendingLoaded = true
-        analyticsTracker.logEvent("trending_loaded", mapOf("item_count" to items.size.toString()))
+    // ── Chips ───────────────────────────────────────────────────────────────────
 
-        when {
-            currentTab == Tab.HOME && selectedCategory == null -> renderHome()
-            currentTab == Tab.SEARCH && searchQuery.isNotEmpty() -> renderSearch()
+    private fun renderChips() {
+        val chips = buildList {
+            add(ALL to getString(R.string.category_all))
+            if (repo.hasPopular || activeCategory == POPULAR) add(POPULAR to getString(R.string.category_popular))
+            repo.categories.forEach { add(it.path to it.name) }
         }
-    }
+        if (chips == renderedChips) return
+        renderedChips = chips
 
-    private fun renderCategoryChips() {
         val group = binding.categoryChips
         suppressChipEvents = true
         group.removeAllViews()
-        group.addView(createCategoryChip(getString(R.string.category_all), null))
-        categoriesList.forEach { group.addView(createCategoryChip(it.name.orEmpty(), it)) }
-        checkChipFor(selectedCategory, notify = false)
+        chips.forEach { (path, name) ->
+            val chip = layoutInflater.inflate(R.layout.item_category_chip, group, false) as Chip
+            chip.id = View.generateViewId()
+            chip.text = name
+            chip.tag = path
+            group.addView(chip)
+        }
+        checkChip(activeCategory)
         suppressChipEvents = false
 
-        group.setOnCheckedStateChangeListener { chipGroup, checkedIds ->
+        group.setOnCheckedStateChangeListener { chipGroup, ids ->
             if (suppressChipEvents) return@setOnCheckedStateChangeListener
-            val chip = checkedIds.firstOrNull()?.let { chipGroup.findViewById<Chip>(it) }
-                ?: return@setOnCheckedStateChangeListener
-            onCategoryChipSelected(chip.tag as? Category)
-            scrollChipIntoView(chip)
+            val chip = ids.firstOrNull()?.let { chipGroup.findViewById<Chip>(it) } ?: return@setOnCheckedStateChangeListener
+            selectCategory(chip.tag as String)
         }
     }
 
-    private fun createCategoryChip(label: String, category: Category?): Chip {
-        return (layoutInflater.inflate(R.layout.item_category_chip, binding.categoryChips, false) as Chip).apply {
-            id = View.generateViewId()
-            text = label
-            tag = category
-        }
-    }
-
-    /** Checks the chip for [category] (null = "All"). With [notify] the feed reloads as if tapped. */
-    private fun checkChipFor(category: Category?, notify: Boolean) {
+    private fun checkChip(path: String) {
         val group = binding.categoryChips
-        val chip = (0 until group.childCount)
-            .map { group.getChildAt(it) as Chip }
-            .firstOrNull { (it.tag as? Category)?.path == category?.path }
-            ?: return
-
-        if (chip.isChecked) {
-            if (notify) onCategoryChipSelected(category)
-        } else {
+        val chip = (0 until group.childCount).map { group.getChildAt(it) as Chip }.firstOrNull { it.tag == path } ?: return
+        if (!chip.isChecked) {
             val previous = suppressChipEvents
-            suppressChipEvents = !notify
+            suppressChipEvents = true
             chip.isChecked = true
             suppressChipEvents = previous
         }
-        scrollChipIntoView(chip)
-    }
-
-    private fun scrollChipIntoView(chip: Chip) {
         binding.categoryScroll.post {
             val target = chip.left - (binding.categoryScroll.width - chip.width) / 2
             binding.categoryScroll.smoothScrollTo(target.coerceAtLeast(0), 0)
         }
     }
 
-    private fun onCategoryChipSelected(category: Category?) {
-        selectedCategory = category
-        pendingHomeScrollState = null
-        binding.appBar.setExpanded(true)
-        if (currentTab == Tab.HOME) renderHome()
+    // ── Rendering ───────────────────────────────────────────────────────────────
 
-        if (category == null) {
-            analyticsTracker.logEvent("open_trending")
+    private fun render(scrollToTop: Boolean = false) {
+        if (!::adapter.isInitialized) return
+        when (currentTab) {
+            Tab.HOME -> adapter.submitList(homeRows()) { afterSubmit(scrollToTop) }
+            Tab.SAVED -> adapter.submitList(savedRows()) { afterSubmit(scrollToTop) }
+            Tab.YOU -> renderProfile()
+        }
+    }
+
+    private fun afterSubmit(scrollToTop: Boolean) {
+        if (scrollToTop) binding.feedRecycler.scrollToPosition(0)
+        binding.feedRecycler.post { checkLoadMore() }
+    }
+
+    private fun isFeedReady() = when (activeCategory) {
+        ALL, POPULAR -> repo.allLoaded
+        else -> activeCategory in repo.loadedCategories
+    }
+
+    /** Filter + order like the website: All shuffled per session, a category newest first, Popular by score. */
+    private fun homeFeed(): List<Wallpaper> {
+        val inputs = Triple(repo.records, activeCategory, query)
+        val cached = feedInputs
+        if (cached != null && cached.first === inputs.first && cached.second == inputs.second && cached.third == inputs.third) {
+            return feedList
+        }
+        val matches = repo.records.filter { image ->
+            if (activeCategory != ALL && activeCategory != POPULAR && image.category != activeCategory) return@filter false
+            query.isEmpty() ||
+                "${image.title.orEmpty()} ${image.search.orEmpty()} ${image.categoryName}".lowercase().contains(query)
+        }
+        // Shuffle keys computed once per image, not once per comparison
+        fun shuffleKeys() = matches.associateWith { PinUtils.hash(PinUtils.SEED + it.key) }
+        feedList = when (activeCategory) {
+            POPULAR -> shuffleKeys().let { keys ->
+                matches.sortedWith(compareByDescending<Wallpaper> { it.score }.thenBy { keys.getValue(it) })
+            }
+            ALL -> shuffleKeys().let { keys -> matches.sortedBy { keys.getValue(it) } }
+            else -> matches.reversed() // newest first (push keys sort by time)
+        }
+        feedInputs = inputs
+        return feedList
+    }
+
+    private fun recentItems(): List<Wallpaper> = saved.recent.mapNotNull { repo.byKey[it.key] }
+
+    private fun homeRows(): List<FeedRow> = buildList {
+        val ready = isFeedReady()
+        val feed = if (ready) homeFeed() else emptyList()
+
+        if (activeCategory == ALL && query.isEmpty()) {
+            val recent = recentItems()
+            if (recent.size >= 2) add(FeedRow.Recent(recent.take(RECENT_STRIP_MAX), showSeeAll = true))
+        }
+
+        val categoryName = repo.categories.firstOrNull { it.path == activeCategory }?.name
+        val title = when {
+            query.isNotEmpty() -> getString(R.string.heading_results, rawQuery.trim())
+            activeCategory == POPULAR -> getString(R.string.heading_popular)
+            categoryName != null -> getString(R.string.heading_category, categoryName)
+            else -> getString(R.string.heading_discover)
+        }
+        val count = if (ready) {
+            resources.getQuantityString(R.plurals.wallpaper_count, feed.size, NumberFormat.getInstance().format(feed.size))
         } else {
-            analyticsTracker.logEvent(
-                "category_select",
-                mapOf("category_name" to category.name, "category_path" to category.path)
-            )
+            null
         }
+        add(FeedRow.Heading(title, count))
+
+        if (!ready) {
+            add(FeedRow.Loading)
+            return@buildList
+        }
+        if (feed.isEmpty()) {
+            val message = if (query.isNotEmpty()) getString(R.string.no_wallpapers_found_for, rawQuery.trim())
+            else getString(R.string.no_wallpapers_found)
+            val action = if (query.isNotEmpty() || activeCategory != ALL) getString(R.string.show_all_wallpapers) else null
+            add(FeedRow.Empty(null, message, action, ACTION_SHOW_ALL))
+            return@buildList
+        }
+
+        addPins(feed, "home|$activeCategory|$query", withAds = true)
     }
 
-    private fun openCategoryOnHome(category: Category) {
-        selectedCategory = category
-        pendingHomeScrollState = null
-        checkChipFor(category, notify = false)
-        binding.bottomNav.selectedItemId = R.id.nav_home
-    }
+    private fun savedRows(): List<FeedRow> = buildList {
+        add(FeedRow.SyncBanner(account))
+        add(FeedRow.SavedTabs(savedTab, saved.favorites.size, saved.collections.size, saved.recent.size))
 
-    /** Loads a category once (served from the offline cache when available) into the masonry feed. */
-    private fun showCategoryFeed(category: Category) {
-        val path = category.path?.takeIf { it.isNotBlank() } ?: run {
-            showFeed(0, getString(R.string.empty_wallpapers))
-            return
-        }
-        showLoading()
-
-        firebaseDatabase.getReference(path).addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                if (!isShowingCategory(path)) return
-                val items = snapshot.children.mapNotNull { it.getValue(Model::class.java) }
-                showStaticFeed(items, "category", getString(R.string.empty_wallpapers), withAds = true)
+        when (savedTab) {
+            SavedTab.FAVORITES -> {
+                if (saved.favorites.isEmpty()) {
+                    add(emptyRow(R.string.empty_favourites_title, R.string.empty_favourites_text, R.drawable.ic_favorite_border_24))
+                } else if (!repo.allLoaded) {
+                    add(FeedRow.Loading)
+                } else {
+                    addPins(saved.favorites.mapNotNull { repo.byKey[it.key] }, "saved|favorites", withAds = false)
+                }
             }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e(TAG, "Error loading category $path: ${error.message}")
-                if (isShowingCategory(path)) showFeed(0, getString(R.string.empty_wallpapers))
+            SavedTab.RECENT -> {
+                if (saved.recent.isEmpty()) {
+                    add(emptyRow(R.string.empty_recent_title, R.string.empty_recent_text, R.drawable.ic_history_24))
+                } else if (!repo.allLoaded) {
+                    add(FeedRow.Loading)
+                } else {
+                    add(FeedRow.SubAction(getString(R.string.clear_history), ACTION_CLEAR_HISTORY))
+                    addPins(recentItems(), "saved|recent", withAds = false)
+                }
             }
-        })
-    }
-
-    /** Guards async category loads against the user having moved on. */
-    private fun isShowingCategory(path: String): Boolean =
-        !isDestroyed && currentTab == Tab.HOME && selectedCategory?.path == path
-
-    private fun restoreHomeScrollIfPending() {
-        if (currentTab != Tab.HOME) return
-        pendingHomeScrollState?.let { binding.feedRecycler.layoutManager?.onRestoreInstanceState(it) }
-        pendingHomeScrollState = null
-    }
-
-    // ── Search ──────────────────────────────────────────────────────────────────
-
-    private fun setupSearch() {
-        binding.searchInput.doAfterTextChanged { text ->
-            val query = text?.toString()?.trim().orEmpty()
-            binding.searchClear.isVisible = !text.isNullOrEmpty()
-            if (query == searchQuery) return@doAfterTextChanged
-            searchQuery = query
-            if (currentTab == Tab.SEARCH) renderSearch()
+            SavedTab.COLLECTIONS -> {
+                if (saved.collections.isEmpty()) {
+                    add(emptyRow(R.string.empty_collections_title, R.string.empty_collections_text, R.drawable.ic_collections_24))
+                } else {
+                    saved.collections.forEach { c ->
+                        add(FeedRow.CollectionCard(c, c.keys.mapNotNull { repo.byKey[it] }.take(3)))
+                    }
+                }
+            }
         }
-
-        binding.searchInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId != EditorInfo.IME_ACTION_SEARCH) return@setOnEditorActionListener false
-            hideKeyboard()
-            analyticsTracker.logEvent("search_submit", mapOf("query" to searchQuery))
-            true
-        }
-
-        binding.searchClear.setOnClickListener { binding.searchInput.setText("") }
     }
 
-    private fun renderSearch() {
-        binding.searchSectionTitle.isVisible = searchQuery.isEmpty()
+    private fun emptyRow(title: Int, text: Int, icon: Int) =
+        FeedRow.Empty(getString(title), getString(text), getString(R.string.browse_wallpapers), ACTION_BROWSE, icon)
 
-        if (searchQuery.isEmpty()) {
-            if (categoriesList.isEmpty()) showLoading() else showOnly(binding.categoryGrid)
+    /** Adds the revealed pins of [list] (and, on Home, a sponsored pin after every 15th). */
+    private fun MutableList<FeedRow>.addPins(list: List<Wallpaper>, key: String, withAds: Boolean) {
+        if (key != pinListKey) {
+            pinListKey = key
+            generation += 1
+            measuring = false
+            revealed = 0
+            pinList = list
+            loadMore()
+        } else {
+            pinList = list
+            revealed = revealed.coerceAtMost(list.size)
+        }
+        if (revealed == 0) {
+            add(FeedRow.Loading)
             return
         }
-
-        if (!trendingLoaded) {
-            showLoading()
-            return
+        val favorites = saved.favorites.mapTo(HashSet()) { it.key }
+        val ads = if (withAds) feedAds.ads else emptyList()
+        for (i in 0 until revealed) {
+            val image = list[i]
+            add(FeedRow.Pin(image, i, image.key in favorites))
+            if (ads.isNotEmpty() && (i + 1) % PinUtils.AD_EVERY == 0) {
+                val slot = (i + 1) / PinUtils.AD_EVERY - 1
+                add(FeedRow.Ad(slot, ads[slot % ads.size]))
+            }
         }
+    }
 
-        val tokens = searchQuery.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
-        val results = searchPool().filter { model ->
-            val haystack = "${model.title.orEmpty()} ${model.search.orEmpty()}".lowercase()
-            tokens.all { haystack.contains(it) }
+    private fun loadMore() {
+        if (measuring || revealed >= pinList.size) return
+        measuring = true
+        val gen = generation
+        val start = revealed
+        val size = if (start == 0) FIRST_PAGE_SIZE else PAGE_SIZE // something on screen sooner
+        val batch = pinList.subList(start, minOf(start + size, pinList.size)).toList()
+        lifecycleScope.launch {
+            RatioCache.measure(this@MainActivity, batch)
+            if (gen != generation) return@launch // screen changed while measuring
+            measuring = false
+            revealed = start + batch.size
+            render()
         }
-        showStaticFeed(results, "search", getString(R.string.empty_search_results), withAds = true)
+    }
+
+    private fun checkLoadMore() {
+        if (currentTab == Tab.YOU || revealed >= pinList.size) return
+        val layoutManager = binding.feedRecycler.layoutManager as? StaggeredGridLayoutManager ?: return
+        val last = layoutManager.findLastVisibleItemPositions(null).maxOrNull() ?: return
+        if (last >= adapter.itemCount - LOAD_AHEAD) loadMore()
+    }
+
+    // ── Feed callbacks ──────────────────────────────────────────────────────────
+
+    override fun onPinClick(row: FeedRow.Pin) {
+        val source = if (currentTab == Tab.HOME) "feed" else savedTab.name.lowercase()
+        openPin(row.image, pinList, source)
+    }
+
+    override fun onPinLongClick(row: FeedRow.Pin) {
+        binding.feedRecycler.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        toggleSave(row.image)
+    }
+
+    override fun onRecentClick(items: List<Wallpaper>, index: Int) = openPin(items[index], items, "recent")
+
+    override fun onRecentSeeAll() = goSaved(SavedTab.RECENT)
+
+    override fun onRecentClear() = clearRecent()
+
+    override fun onSubAction(actionId: Int) {
+        if (actionId == ACTION_CLEAR_HISTORY) clearRecent()
+    }
+
+    override fun onEmptyAction(actionId: Int) {
+        binding.searchInput.setText("")
+        handler.removeCallbacks(applyQuery)
+        rawQuery = ""
+        query = ""
+        goHome(ALL)
+    }
+
+    override fun onSignIn() = signIn()
+
+    override fun onSavedTab(tab: SavedTab) {
+        savedTab = tab
+        render(scrollToTop = true)
+    }
+
+    override fun onCollectionClick(collection: SavedStore.Collection) {
+        collectionLauncher.launch(CollectionActivity.intent(this, collection.id))
+    }
+
+    private fun clearRecent() {
+        val undo = SavedRepository.clearRecent()
+        snackbar(getString(R.string.cleared_recent), getString(R.string.undo)) { undo() }
+    }
+
+    private fun toggleSave(image: Wallpaper) {
+        val added = SavedRepository.toggleFavorite(image)
+        if (added) {
+            snackbar(getString(R.string.saved_to_favourites), getString(R.string.view)) { goSaved(SavedTab.FAVORITES) }
+        } else {
+            snackbar(getString(R.string.removed_from_favourites), getString(R.string.undo)) {
+                SavedRepository.toggleFavorite(image)
+            }
+        }
+    }
+
+    private fun openPin(image: Wallpaper, list: List<Wallpaper>, source: String) {
         analyticsTracker.logEvent(
-            "search_results",
-            mapOf("query" to searchQuery, "result_count" to results.size.toString())
+            "select_content",
+            mapOf(
+                "content_type" to "wallpaper",
+                "item_id" to image.key,
+                "item_name" to image.displayTitle,
+                "category" to image.categoryName
+            )
         )
+        detailLauncher.launch(ImageActivity.intent(this, list, list.indexOfFirst { it.key == image.key }.coerceAtLeast(0), source))
     }
 
-    /** Everything already on the device: the trending mix plus saved favorites. */
-    private fun searchPool(): List<Model> =
-        (trendingItems + FavoritesStore.getFavorites(this)).distinctBy { it.image }
-
-    private fun hideKeyboard() {
-        binding.searchInput.clearFocus()
-        WindowCompat.getInsetsController(window, binding.searchInput).hide(WindowInsetsCompat.Type.ime())
-    }
-
-    // ── Saved ───────────────────────────────────────────────────────────────────
-
-    private fun loadFavorites() {
-        val favorites = sortFavorites(FavoritesStore.getFavorites(this))
-        showStaticFeed(favorites, "favorites", getString(R.string.empty_favorites))
-        analyticsTracker.logEvent("open_favorites", mapOf("item_count" to favorites.size.toString()))
-    }
-
-    private fun sortFavorites(items: List<Model>): List<Model> {
-        return when (favoritesSortMode) {
-            FavoritesSortMode.RECENT -> items
-            FavoritesSortMode.ALPHABETICAL -> items.sortedBy { it.title?.lowercase() ?: "" }
+    private fun snackbar(message: String, action: String? = null, onAction: (() -> Unit)? = null) {
+        Snackbar.make(binding.root, message, if (action != null) 6000 else Snackbar.LENGTH_SHORT).apply {
+            anchorView = binding.bottomBar
+            if (action != null && onAction != null) setAction(action) { onAction() }
+            show()
         }
     }
 
-    private fun showFavoritesSortDialog() {
-        val options = arrayOf(
-            getString(R.string.sort_recent),
-            getString(R.string.sort_alphabetical)
-        )
-        val checked = if (favoritesSortMode == FavoritesSortMode.RECENT) 0 else 1
+    // ── Deep links (App Links: https://wallapp.shubhamy.in/?c=…&pin=…) ─────────
 
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.sort_favorites_title)
-            .setSingleChoiceItems(options, checked) { dialog, which ->
-                favoritesSortMode = if (which == 0) FavoritesSortMode.RECENT else FavoritesSortMode.ALPHABETICAL
-                saveFavoritesSortMode(favoritesSortMode)
-                analyticsTracker.logEvent(
-                    "favorites_sort_changed",
-                    mapOf("mode" to favoritesSortMode.name.lowercase())
-                )
-                loadFavorites()
-                dialog.dismiss()
+    private fun handleDeepLink(intent: Intent?) {
+        val uri: Uri = intent?.data ?: return
+        if (uri.host != WEB_HOST) return
+        uri.getQueryParameter("c")?.takeIf { it.isNotBlank() }?.let { activeCategory = it }
+        pendingPin = uri.getQueryParameter("pin")?.takeIf { it.isNotBlank() }
+        if (uri.getQueryParameter("view") == "saved") {
+            savedTab = when (uri.getQueryParameter("tab")) {
+                "collections" -> SavedTab.COLLECTIONS
+                "recent" -> SavedTab.RECENT
+                else -> SavedTab.FAVORITES
             }
-            .show()
+            currentTab = Tab.SAVED
+        }
+        intent.data = null
+        openPendingPin()
     }
 
-    private fun readFavoritesSortMode(): FavoritesSortMode {
-        val raw = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .getString(KEY_FAVORITES_SORT_MODE, FavoritesSortMode.RECENT.name)
-        return runCatching { FavoritesSortMode.valueOf(raw ?: FavoritesSortMode.RECENT.name) }
-            .getOrDefault(FavoritesSortMode.RECENT)
-    }
-
-    private fun saveFavoritesSortMode(mode: FavoritesSortMode) {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit {
-            putString(KEY_FAVORITES_SORT_MODE, mode.name)
+    private fun openPendingPin() {
+        val key = pendingPin ?: return
+        val image = repo.byKey[key]
+        if (image != null) {
+            pendingPin = null
+            val list = if (isFeedReady()) homeFeed().takeIf { feed -> feed.any { it.key == key } } else null
+            openPin(image, list ?: listOf(image), "link")
+        } else if (repo.allLoaded) {
+            pendingPin = null
+            Toast.makeText(this, R.string.wallpaper_not_found, Toast.LENGTH_SHORT).show()
         }
     }
 
-    // ── You (profile + settings) ────────────────────────────────────────────────
+    // ── Account ─────────────────────────────────────────────────────────────────
+
+    private fun signIn() {
+        lifecycleScope.launch {
+            SavedSync.signInWithGoogle(this@MainActivity)?.let { error -> snackbar(error) }
+        }
+    }
+
+    private fun signOut() {
+        lifecycleScope.launch {
+            SavedSync.signOut(this@MainActivity)
+            snackbar(getString(R.string.signed_out))
+        }
+    }
+
+    private fun renderAccount() {
+        val user = account.user
+        binding.headerSignIn.isVisible = account.known && user == null
+        binding.headerAvatar.isVisible = user != null
+        binding.headerAvatarInitial.isVisible = user != null && user.photoUrl == null
+        if (user != null) {
+            val initial = (user.displayName ?: user.email ?: "?").first().uppercase()
+            binding.headerAvatarInitial.text = initial
+            if (user.photoUrl != null) Glide.with(this).load(user.photoUrl).circleCrop().into(binding.headerAvatar)
+            else binding.headerAvatar.setImageDrawable(null)
+        }
+        if (currentTab == Tab.YOU) renderProfile()
+    }
+
+    // ── You (account + settings) ────────────────────────────────────────────────
 
     private fun setupProfile() {
-        binding.sortButton.setOnClickListener { showFavoritesSortDialog() }
-
         val profile = binding.profile
+        profile.accountGoogle.setOnClickListener { signIn() }
+        profile.accountSignOut.setOnClickListener { signOut() }
         profile.rowAutoWallpaper.setOnClickListener { handleAutoWallpaperAction() }
         profile.rowRunNow.setOnClickListener { runAutoWallpaperNow() }
         profile.rowCheckUpdate.setOnClickListener {
@@ -618,15 +762,31 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderProfile() {
-        showOnly(binding.profileScroll)
-
         val profile = binding.profile
+        val user = account.user
+        profile.accountSignedOut.isVisible = account.known && user == null
+        profile.accountSignedIn.isVisible = user != null
+        profile.accountSignOut.isVisible = user != null
+        if (user != null) {
+            profile.accountName.text = user.displayName ?: getString(R.string.account)
+            profile.accountEmail.text = user.email
+            profile.accountEmail.isVisible = user.email != null
+            profile.accountInitial.text = (user.displayName ?: user.email ?: "?").first().uppercase()
+            if (user.photoUrl != null) Glide.with(this).load(user.photoUrl).circleCrop().into(profile.accountAvatar)
+            else profile.accountAvatar.setImageDrawable(null)
+            profile.accountSync.text = when (account.status) {
+                SavedSync.Status.ERROR -> getString(R.string.sync_error)
+                SavedSync.Status.SYNCING -> getString(R.string.sync_syncing)
+                else -> getString(R.string.sync_synced)
+            }
+            val icon = if (account.status == SavedSync.Status.ERROR) R.drawable.ic_cloud_off_24 else R.drawable.ic_cloud_done_24
+            profile.accountSync.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0)
+            profile.accountSync.compoundDrawablesRelative[0]?.setTint(ContextCompat.getColor(this, R.color.onSurfaceVariant))
+        }
+
         val autoEnabled = AutoWallpaperManager.isEnabled(this)
         profile.switchAutoWallpaper.isChecked = autoEnabled
         profile.rowRunNow.isVisible = autoEnabled
-
-        val savedCount = FavoritesStore.getFavorites(this).size
-        profile.profileStats.text = resources.getQuantityString(R.plurals.saved_count, savedCount, savedCount)
     }
 
     private fun handleAutoWallpaperAction() {
@@ -638,7 +798,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (!AutoWallpaperManager.hasEligibleFavorites(this)) {
+        if (!AutoWallpaperManager.hasEligibleFavorites()) {
             MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.auto_wallpaper_title)
                 .setMessage(R.string.auto_wallpaper_requires_favorites)
@@ -661,11 +821,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun runAutoWallpaperNow() {
-        if (!AutoWallpaperManager.hasEligibleFavorites(this)) {
+        if (!AutoWallpaperManager.hasEligibleFavorites()) {
             Toast.makeText(this, getString(R.string.auto_wallpaper_requires_favorites), Toast.LENGTH_SHORT).show()
             return
         }
-
         AutoWallpaperManager.runNow(this)
         analyticsTracker.logEvent("auto_wallpaper_run_now_requested")
         Toast.makeText(this, getString(R.string.auto_wallpaper_run_now_queued), Toast.LENGTH_SHORT).show()
@@ -677,70 +836,9 @@ class MainActivity : AppCompatActivity() {
     private fun appVersionName(): String =
         runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull().orEmpty()
 
-    // ── Feed rendering ──────────────────────────────────────────────────────────
-
-    private fun showStaticFeed(items: List<Model>, source: String, emptyMessage: String, withAds: Boolean = false) {
-        binding.feedRecycler.adapter = PinAdapter(
-            items,
-            onPinClick = { position, model ->
-                analyticsTracker.logEvent("wallpaper_open", mapOf("source" to source, "title" to model.title))
-                openImageDetail(model, FeedContext(items = items, currentIndex = position, source = source))
-            },
-            onFavoriteToggled = { model, nowFavorite -> onPinFavoriteToggled(model, nowFavorite, source) },
-            feedAds = feedAds.takeIf { withAds }
-        )
-        showFeed(items.size, emptyMessage)
-        restoreHomeScrollIfPending()
-    }
-
-    private fun onPinFavoriteToggled(model: Model, nowFavorite: Boolean, source: String) {
-        analyticsTracker.logEvent(
-            if (nowFavorite) "favorite_added" else "favorite_removed",
-            mapOf("title" to model.title, "source" to source)
-        )
-        if (currentTab == Tab.SAVED && !nowFavorite) loadFavorites()
-    }
-
-    private fun openImageDetail(model: Model, feedContext: FeedContext?) {
-        val intent = Intent(this, ImageActivity::class.java).apply {
-            putExtra("image", model.image)
-            putExtra("title", model.title)
-            if (!model.cloudinaryUrl.isNullOrBlank()) {
-                putExtra(ImageActivity.EXTRA_CLOUDINARY_URL, model.cloudinaryUrl)
-            }
-        }
-
-        if (feedContext != null) {
-            val sessionId = WallpaperSwipeSession.createSession(feedContext.items, feedContext.source)
-            intent.putExtra(ImageActivity.EXTRA_SWIPE_SESSION_ID, sessionId)
-            intent.putExtra(ImageActivity.EXTRA_SWIPE_INDEX, feedContext.currentIndex)
-        }
-
-        imageDetailLauncher.launch(intent)
-    }
-
-    private fun showLoading() {
-        showOnly(binding.loadingProgress)
-    }
-
-    private fun showFeed(itemCount: Int, emptyMessage: String) {
-        if (itemCount > 0) {
-            showOnly(binding.feedRecycler)
-        } else {
-            binding.emptyStateText.text = emptyMessage
-            showOnly(binding.emptyStateText)
-        }
-    }
-
-    /** Shows exactly one of the content-area views. */
-    private fun showOnly(view: View) {
-        listOf(
-            binding.feedRecycler,
-            binding.categoryGrid,
-            binding.profileScroll,
-            binding.loadingProgress,
-            binding.emptyStateText
-        ).forEach { it.isVisible = it == view }
+    private fun hideKeyboard() {
+        binding.searchInput.clearFocus()
+        WindowCompat.getInsetsController(window, binding.searchInput).hide(WindowInsetsCompat.Type.ime())
     }
 
     private fun showExitDialog() {
@@ -761,7 +859,6 @@ class MainActivity : AppCompatActivity() {
             .addOnSuccessListener { updateInfo ->
                 markUpdateCheckDone()
 
-                // If update is already downloaded, complete it
                 if (updateInfo.installStatus() == InstallStatus.DOWNLOADED) {
                     showUpdateDownloadedSnackbar()
                     return@addOnSuccessListener
@@ -769,7 +866,6 @@ class MainActivity : AppCompatActivity() {
 
                 if (updateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
                     val updatePriority = updateInfo.updatePriority()
-
                     // Immediate update for high priority (4-5), flexible otherwise (0-3)
                     val updateType = if (updatePriority >= 4) AppUpdateType.IMMEDIATE else AppUpdateType.FLEXIBLE
 
@@ -788,26 +884,16 @@ class MainActivity : AppCompatActivity() {
                                 )
                             )
                         } catch (e: IntentSender.SendIntentException) {
-                            analyticsTracker.logEvent(
-                                "in_app_update_start_failed",
-                                mapOf("error" to e.message.orEmpty())
-                            )
-                            // Ignore; no safe fallback required for optional update prompt.
+                            analyticsTracker.logEvent("in_app_update_start_failed", mapOf("error" to e.message.orEmpty()))
                         }
                     }
                 } else if (force) {
-                    // Only show "no update" message if user manually checked
                     Toast.makeText(this, getString(R.string.no_updates_available), Toast.LENGTH_SHORT).show()
                 }
             }
             .addOnFailureListener { exception ->
-                analyticsTracker.logEvent(
-                    "in_app_update_check_failed",
-                    mapOf("error" to exception.message.orEmpty())
-                )
-                if (force) {
-                    Toast.makeText(this, getString(R.string.update_check_failed), Toast.LENGTH_SHORT).show()
-                }
+                analyticsTracker.logEvent("in_app_update_check_failed", mapOf("error" to exception.message.orEmpty()))
+                if (force) Toast.makeText(this, getString(R.string.update_check_failed), Toast.LENGTH_SHORT).show()
             }
     }
 
@@ -818,14 +904,12 @@ class MainActivity : AppCompatActivity() {
                 analyticsTracker.logEvent("in_app_update_restart_clicked")
                 appUpdateManager.completeUpdate()
             }
-            setActionTextColor(getColor(R.color.primary))
             show()
         }
     }
 
     private fun shouldCheckForUpdatesNow(): Boolean {
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val lastCheckedAt = prefs.getLong(KEY_LAST_UPDATE_CHECK_AT, 0L)
+        val lastCheckedAt = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getLong(KEY_LAST_UPDATE_CHECK_AT, 0L)
         return System.currentTimeMillis() - lastCheckedAt >= UPDATE_CHECK_COOLDOWN_MS
     }
 
@@ -845,11 +929,8 @@ class MainActivity : AppCompatActivity() {
         appUpdateManager.appUpdateInfo.addOnSuccessListener { updateInfo ->
             when (updateInfo.installStatus()) {
                 InstallStatus.DOWNLOADED -> showUpdateDownloadedSnackbar()
-                InstallStatus.INSTALLING -> {
-                    // Update is being installed in the background
-                }
+                InstallStatus.INSTALLING -> Unit
                 else -> {
-                    // If an immediate update was stalled, resume it
                     if (updateInfo.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
                         try {
                             appUpdateManager.startUpdateFlowForResult(
@@ -858,36 +939,39 @@ class MainActivity : AppCompatActivity() {
                                 AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
                             )
                         } catch (_: IntentSender.SendIntentException) {
-                            // Failed to resume update
                         }
                     }
                 }
             }
         }
-
-        when (currentTab) {
-            Tab.SAVED -> loadFavorites()
-            Tab.YOU -> renderProfile()
-            else -> {}
-        }
+        if (currentTab == Tab.YOU) renderProfile()
     }
 
     override fun onDestroy() {
-        // Prevent Firebase memory leaks by removing listeners
-        categoriesListener?.let { categoriesRef?.removeEventListener(it) }
+        handler.removeCallbacks(applyQuery)
         feedAds.destroy()
         appUpdateManager.unregisterListener(installStateUpdatedListener)
         super.onDestroy()
     }
 
     companion object {
-        private const val TAG = "MainActivity"
+        private const val ALL = "All"
+        private const val POPULAR = "popular"
+        private const val WEB_HOST = "wallapp.shubhamy.in"
+        private const val PAGE_SIZE = 30
+        private const val FIRST_PAGE_SIZE = 12
+        private const val LOAD_AHEAD = 10
+        private const val RECENT_STRIP_MAX = 12
+        private const val SEARCH_DEBOUNCE_MS = 200L
+        private const val ACTION_SHOW_ALL = 1
+        private const val ACTION_BROWSE = 2
+        private const val ACTION_CLEAR_HISTORY = 3
         private const val PREFS_NAME = "wallapp_prefs"
-        private const val KEY_FAVORITES_SORT_MODE = "favorites_sort_mode"
         private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
         private const val UPDATE_CHECK_COOLDOWN_MS = 2L * 24 * 60 * 60 * 1000 // 2 days
-        private const val TRENDING_ITEMS_PER_CATEGORY = 20
         private const val FEEDBACK_EMAIL = "shubhamskyjnp@gmail.com"
         private const val STATE_TAB = "state_tab"
+        private const val STATE_CATEGORY = "state_category"
+        private const val STATE_SAVED_TAB = "state_saved_tab"
     }
 }

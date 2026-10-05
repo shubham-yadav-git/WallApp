@@ -42,7 +42,23 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- App Links: https://wallapp.shubhamy.in/?pin={path}%2F{id} and ?c={path} -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="wallapp.shubhamy.in"
+                    android:path="/" />
+            </intent-filter>
         </activity>
+
+        <activity
+            android:name="com.sky.wallapp.CollectionActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
 
         <activity
             android:name="com.sky.wallapp.ImageActivity"

@@ -16,7 +16,7 @@ object AutoWallpaperManager {
 
     private const val PREFS_NAME = "auto_wallpaper_prefs"
     private const val KEY_ENABLED = "enabled"
-    private const val KEY_LAST_IMAGE_URL = "last_image_url"
+    private const val KEY_LAST_KEY = "last_wallpaper_key"
     private const val WORK_NAME = "daily_auto_wallpaper"
     private const val RUN_NOW_WORK_NAME = "daily_auto_wallpaper_run_now"
 
@@ -24,9 +24,8 @@ object AutoWallpaperManager {
         return prefs(context).getBoolean(KEY_ENABLED, false)
     }
 
-    fun hasEligibleFavorites(context: Context): Boolean {
-        return FavoritesStore.getFavorites(context).any { !it.image.isNullOrBlank() }
-    }
+    /** True when the visitor has at least one favourite (SavedRepository must be initialised). */
+    fun hasEligibleFavorites(): Boolean = SavedRepository.state.value.favorites.isNotEmpty()
 
     fun enable(context: Context) {
         prefs(context).edit { putBoolean(KEY_ENABLED, true) }
@@ -57,19 +56,16 @@ object AutoWallpaperManager {
         )
     }
 
-    fun pickNextFavorite(context: Context): Model? {
-        val favorites = FavoritesStore.getFavorites(context).filter { !it.image.isNullOrBlank() }
-        if (favorites.isEmpty()) return null
-
-        val lastImageUrl = prefs(context).getString(KEY_LAST_IMAGE_URL, null)
-        if (favorites.size == 1) return favorites.first()
-
-        return favorites.firstOrNull { it.image != lastImageUrl } ?: favorites.first()
+    /** Next favourite key to apply: the newest one that wasn't applied last time. */
+    fun pickNextFavoriteKey(context: Context): String? {
+        val keys = SavedRepository.state.value.favorites.map { it.key }
+        if (keys.isEmpty()) return null
+        val last = prefs(context).getString(KEY_LAST_KEY, null)
+        return keys.firstOrNull { it != last } ?: keys.first()
     }
 
-    fun markApplied(context: Context, imageUrl: String?) {
-        if (imageUrl.isNullOrBlank()) return
-        prefs(context).edit { putString(KEY_LAST_IMAGE_URL, imageUrl) }
+    fun markApplied(context: Context, key: String) {
+        prefs(context).edit { putString(KEY_LAST_KEY, key) }
     }
 
     private fun schedule(context: Context) {

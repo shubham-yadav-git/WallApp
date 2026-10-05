@@ -1,7 +1,7 @@
 <resources>
     <!-- Masonry feed -->
-    <dimen name="feed_side_padding">6dp</dimen>
-    <dimen name="pin_gutter">5dp</dimen>
+    <dimen name="feed_side_padding">4dp</dimen>
+    <dimen name="pin_gutter">4dp</dimen>
     <dimen name="pin_corner_radius">16dp</dimen>
 
     <!-- Screen chrome -->

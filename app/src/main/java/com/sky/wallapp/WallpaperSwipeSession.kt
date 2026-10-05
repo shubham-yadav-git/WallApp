@@ -3,19 +3,20 @@ package com.sky.wallapp
 import java.util.UUID
 
 /**
- * Keeps a short-lived in-memory list so detail screen can swipe within the same feed.
+ * Keeps a short-lived in-memory list so the detail screen can swipe within the list it was
+ * opened from (feed, Saved, a collection or "More like this").
  */
 object WallpaperSwipeSession {
 
     data class Session(
-        val items: List<Model>,
+        val items: List<Wallpaper>,
         val source: String
     )
 
     private const val MAX_SESSIONS = 6
     private val sessions = LinkedHashMap<String, Session>()
 
-    fun createSession(items: List<Model>, source: String): String {
+    fun createSession(items: List<Wallpaper>, source: String): String {
         val sessionId = UUID.randomUUID().toString()
         sessions[sessionId] = Session(items = items, source = source)
         trimOldSessions()
@@ -34,4 +35,3 @@ object WallpaperSwipeSession {
         }
     }
 }
-

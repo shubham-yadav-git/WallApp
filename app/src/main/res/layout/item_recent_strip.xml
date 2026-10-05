@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingTop="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/recently_viewed"
+            android:textAppearance="@style/TextAppearance.App.SectionTitle" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/recent_see_all"
+            style="@style/Widget.App.TextAction"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/see_all" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/recent_clear"
+            style="@style/Widget.App.TextAction"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/clear" />
+
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recent_list"
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:clipToPadding="false"
+        android:paddingHorizontal="4dp" />
+
+</LinearLayout>

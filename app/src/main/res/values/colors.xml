@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Neutral, image-first palette: the wallpapers carry the color -->
-    <color name="primary">#E60023</color>
+    <color name="primary">#E6553A</color>
     <color name="onPrimary">#FFFFFF</color>
-    <color name="primaryContainer">#FFDAD6</color>
-    <color name="onPrimaryContainer">#410002</color>
+    <color name="primaryContainer">#FFDAD3</color>
+    <color name="onPrimaryContainer">#3D0700</color>
 
-    <color name="secondary">#5F5F5F</color>
+    <color name="secondary">#767676</color>
     <color name="onSecondary">#FFFFFF</color>
-    <color name="secondaryContainer">#E9E9E9</color>
+    <color name="secondaryContainer">#EFEFEF</color>
     <color name="onSecondaryContainer">#111111</color>
 
     <color name="background">#FFFFFF</color>
@@ -16,8 +16,8 @@
     <color name="surface">#FFFFFF</color>
     <color name="onSurface">#111111</color>
     <color name="surfaceVariant">#EFEFEF</color>
-    <color name="onSurfaceVariant">#5F5F5F</color>
-    <color name="outline">#CDCDCD</color>
+    <color name="onSurfaceVariant">#767676</color>
+    <color name="outline">#E2E2E2</color>
 
     <!-- Material 3 surface containers (bottom nav, dialogs, sheets) -->
     <color name="surfaceContainerLowest">#FFFFFF</color>
@@ -27,7 +27,7 @@
     <color name="surfaceContainerHighest">#EFEFEF</color>
 
     <!-- Placeholder shown behind pins while images load -->
-    <color name="pinPlaceholder">#EAEAEA</color>
+    <color name="pinPlaceholder">#EFEFEF</color>
 
     <color name="white">#FFFFFF</color>
     <color name="orange_fire">#FF4500</color>
@@ -42,4 +42,10 @@
     <color name="colorPrimary">@color/primary</color>
     <color name="colorPrimaryDark">#31111D</color>
     <color name="colorAccent">@color/primary</color>
+
+    <!-- Website design tokens -->
+    <color name="primaryPressed">#CC4429</color>
+    <color name="softPressed">#E2E2E2</color>
+    <color name="snackbarBackground">#111111</color>
+    <color name="heart">#E6553A</color>
 </resources>

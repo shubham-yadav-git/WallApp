@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingHorizontal="32dp"
+    android:paddingTop="48dp"
+    android:paddingBottom="48dp">
+
+    <ImageView
+        android:id="@+id/empty_icon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginBottom="12dp"
+        android:importantForAccessibility="no"
+        android:visibility="gone"
+        app:tint="@color/onSurfaceVariant"
+        xmlns:app="http://schemas.android.com/apk/res-auto" />
+
+    <TextView
+        android:id="@+id/empty_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+        android:textColor="@color/onSurface"
+        android:textStyle="bold"
+        android:visibility="gone"
+        tools:text="No favourites yet"
+        tools:visibility="visible" />
+
+    <TextView
+        android:id="@+id/empty_message"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+        android:textColor="@color/onSurfaceVariant"
+        tools:text="No wallpapers found for “xyz”." />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/empty_action"
+        style="@style/Widget.App.Pill.Small.Ink"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        tools:text="Show all wallpapers" />
+
+</LinearLayout>

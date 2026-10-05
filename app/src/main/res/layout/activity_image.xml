@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Pin close-up: big rounded image, action row, title, then "More like this" masonry -->
+<!-- Pin close-up (website PinCloseup): contained image over a blurred copy, actions, info, More like this -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -21,24 +21,47 @@
             android:orientation="vertical">
 
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/image_card"
+                android:id="@+id/media_card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="@color/pinPlaceholder"
+                app:cardBackgroundColor="#111111"
                 app:cardCornerRadius="@dimen/detail_corner_radius"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">
 
                 <FrameLayout
+                    android:id="@+id/media"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="560dp">
+
+                    <!-- Blurred, darkened copy filling the frame -->
+                    <ImageView
+                        android:id="@+id/backdrop"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:importantForAccessibility="no"
+                        android:scaleType="centerCrop" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="#73000000" />
+
+                    <!-- Grid image, shown sharp immediately (from cache) until the large one loads -->
+                    <ImageView
+                        android:id="@+id/preview"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:importantForAccessibility="no"
+                        android:scaleType="fitCenter" />
 
                     <ImageView
                         android:id="@+id/image_view"
                         android:layout_width="match_parent"
-                        android:layout_height="520dp"
+                        android:layout_height="match_parent"
+                        android:alpha="0"
                         android:contentDescription="@string/wallpaper_image_desc"
-                        android:scaleType="centerCrop" />
+                        android:scaleType="fitCenter" />
 
                     <ImageView
                         android:id="@+id/double_tap_heart"
@@ -49,83 +72,37 @@
                         android:importantForAccessibility="no"
                         android:src="@drawable/ic_favorite_24"
                         android:visibility="gone"
-                        app:tint="@color/primary" />
-
-                    <com.google.android.material.card.MaterialCardView
-                        android:id="@+id/swipe_hint_card"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="bottom|center_horizontal"
-                        android:layout_marginBottom="16dp"
-                        android:visibility="gone"
-                        app:cardBackgroundColor="@color/surfaceContainerHigh"
-                        app:cardCornerRadius="18dp"
-                        app:cardElevation="4dp"
-                        app:contentPadding="10dp">
-
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/swipe_hint"
-                                android:textColor="@color/onSurfaceVariant"
-                                android:textSize="13sp" />
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/swipe_hint_dismiss"
-                                style="@style/Widget.Material3.Button.TextButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:minWidth="0dp"
-                                android:text="@string/got_it"
-                                android:textAllCaps="false"
-                                android:textColor="@color/onSurface" />
-                        </LinearLayout>
-
-                    </com.google.android.material.card.MaterialCardView>
+                        app:tint="@color/heart" />
 
                 </FrameLayout>
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Action row: secondary icons left, primary CTA right -->
+            <!-- Actions: share, open full size | Download, Save ▾ -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingHorizontal="8dp"
-                android:paddingTop="8dp">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_favorite"
-                    style="@style/Widget.App.DetailIconButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:contentDescription="@string/favorite"
-                    app:icon="@drawable/ic_favorite_border_24"
-                    app:iconTint="@color/favorite_button_tint" />
+                android:paddingHorizontal="12dp"
+                android:paddingTop="12dp">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_share"
-                    style="@style/Widget.App.DetailIconButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    style="@style/Widget.App.RoundButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:contentDescription="@string/share"
                     app:icon="@drawable/ic_share_white_24dp" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_save"
-                    style="@style/Widget.App.DetailIconButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:contentDescription="@string/download"
-                    app:icon="@drawable/ic_download_24" />
+                    android:id="@+id/btn_open"
+                    style="@style/Widget.App.RoundButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="8dp"
+                    android:contentDescription="@string/open_full_size"
+                    app:icon="@drawable/ic_open_in_new_24" />
 
                 <Space
                     android:layout_width="0dp"
@@ -133,41 +110,106 @@
                     android:layout_weight="1" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_wall"
-                    style="@style/Widget.Material3.Button"
+                    android:id="@+id/btn_save"
+                    style="@style/Widget.App.Pill.Soft"
                     android:layout_width="wrap_content"
-                    android:layout_height="52dp"
-                    android:layout_marginEnd="8dp"
-                    android:paddingHorizontal="22dp"
-                    android:text="@string/set_wallpaper"
-                    android:textAppearance="@style/TextAppearance.App.Chip"
-                    app:backgroundTint="@color/primary"
-                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Pill" />
+                    android:layout_height="wrap_content"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="16dp"
+                    android:text="@string/download"
+                    app:icon="@drawable/ic_download_24"
+                    app:iconSize="20dp" />
+
+                <!-- Save split button: main toggles Favourites, ▾ opens "Save to…" -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/save_split"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="8dp"
+                    app:cardBackgroundColor="@color/primary"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/btn_favorite"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:background="?attr/selectableItemBackground"
+                            android:gravity="center"
+                            android:paddingStart="20dp"
+                            android:paddingEnd="12dp"
+                            android:text="@string/action_save"
+                            android:textAppearance="@style/TextAppearance.App.Chip"
+                            android:textColor="@color/white" />
+
+                        <View
+                            android:id="@+id/save_divider"
+                            android:layout_width="1dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center_vertical"
+                            android:background="#4DFFFFFF" />
+
+                        <ImageView
+                            android:id="@+id/btn_save_more"
+                            android:layout_width="40dp"
+                            android:layout_height="match_parent"
+                            android:background="?attr/selectableItemBackground"
+                            android:contentDescription="@string/save_to_collection"
+                            android:paddingStart="6dp"
+                            android:paddingEnd="10dp"
+                            android:src="@drawable/ic_expand_more_24"
+                            app:tint="@color/white" />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
 
             </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_wall"
+                style="@style/Widget.App.Pill.Soft"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="12dp"
+                android:layout_marginTop="10dp"
+                android:text="@string/set_as_wallpaper"
+                app:icon="@drawable/ic_wallpaper_white_24dp"
+                app:iconGravity="textStart" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/category_chip"
+                style="@style/Widget.App.CategoryChip"
+                android:layout_width="wrap_content"
+                android:layout_marginStart="@dimen/screen_side_padding"
+                android:layout_marginTop="16dp"
+                android:checkable="false"
+                tools:text="Nature" />
 
             <TextView
                 android:id="@+id/title_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="8dp"
                 android:paddingHorizontal="@dimen/screen_side_padding"
-                android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
-                android:textColor="@color/onSurface"
-                android:textStyle="bold"
+                android:textAppearance="@style/TextAppearance.App.Heading"
                 tools:text="Misty mountain lake" />
 
             <TextView
-                android:id="@+id/subtitle_text"
+                android:id="@+id/hint_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="4dp"
                 android:paddingHorizontal="@dimen/screen_side_padding"
+                android:text="@string/swipe_to_browse"
                 android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-                android:textColor="@color/onSurfaceVariant"
-                android:visibility="gone"
-                tools:text="3 of 40 · Trending"
-                tools:visibility="visible" />
+                android:textColor="@color/onSurfaceVariant" />
 
             <TextView
                 android:id="@+id/more_title"
@@ -193,17 +235,48 @@
 
     </androidx.core.widget.NestedScrollView>
 
-    <!-- Floating back button over the image -->
-    <ImageButton
-        android:id="@+id/btn_back"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_gravity="top|start"
-        android:layout_marginStart="12dp"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/circle_scrim"
-        android:contentDescription="@string/back"
-        android:src="@drawable/ic_arrow_back_24"
-        app:tint="@color/white" />
+    <!-- Top bar over the image: back and "3 / 120" -->
+    <FrameLayout
+        android:id="@+id/top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:paddingHorizontal="12dp"
+        android:paddingTop="12dp">
+
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/circle_scrim"
+            android:contentDescription="@string/back"
+            android:src="@drawable/ic_arrow_back_24"
+            app:tint="@color/white" />
+
+        <TextView
+            android:id="@+id/counter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal|top"
+            android:layout_marginTop="9dp"
+            android:background="@drawable/ad_badge_bg"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="4dp"
+            android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+            android:textColor="@color/white"
+            android:visibility="gone"
+            tools:text="3 / 120"
+            tools:visibility="visible" />
+
+    </FrameLayout>
+
+    <com.google.android.material.progressindicator.CircularProgressIndicator
+        android:id="@+id/loading"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:indeterminate="true"
+        android:visibility="gone"
+        app:indicatorColor="@color/onSurface" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

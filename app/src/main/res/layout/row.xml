@@ -1,19 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Masonry "pin": rounded image with a variable aspect ratio, title + heart underneath -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Masonry pin: image at its natural ratio over a soft placeholder colour, saved badge top-left -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:paddingHorizontal="@dimen/pin_gutter"
-    android:paddingBottom="10dp">
+    android:padding="@dimen/pin_gutter">
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/parent_card_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardBackgroundColor="@color/pinPlaceholder"
+        android:foreground="?attr/selectableItemBackground"
         app:cardCornerRadius="@dimen/pin_corner_radius"
         app:cardElevation="0dp"
         app:strokeWidth="0dp">
@@ -28,45 +25,27 @@
                 android:layout_height="0dp"
                 android:contentDescription="@string/wallpaper_image_desc"
                 android:scaleType="centerCrop"
-                app:layout_constraintDimensionRatio="2:3"
+                app:layout_constraintDimensionRatio="1:1.4"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
+
+            <ImageView
+                android:id="@+id/saved_badge"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/saved_badge_bg"
+                android:importantForAccessibility="no"
+                android:padding="6dp"
+                android:src="@drawable/ic_favorite_24"
+                android:visibility="gone"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="@color/heart" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
     </com.google.android.material.card.MaterialCardView>
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="4dp"
-        android:paddingTop="2dp">
-
-        <TextView
-            android:id="@+id/title_tv"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:ellipsize="end"
-            android:maxLines="2"
-            android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
-            android:textColor="@color/onSurface"
-            tools:text="Misty mountain lake" />
-
-        <ImageButton
-            android:id="@+id/favorite_btn"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/favorite"
-            android:padding="8dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_favorite_border_24"
-            app:tint="@color/favorite_button_tint" />
-
-    </LinearLayout>
-
-</LinearLayout>
+</FrameLayout>

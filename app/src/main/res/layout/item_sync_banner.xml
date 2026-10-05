@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="4dp"
+    android:paddingBottom="8dp">
+
+    <!-- Signed out: invite to sign in -->
+    <LinearLayout
+        android:id="@+id/banner_signed_out"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/pill_soft_bg"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/sync_banner_title"
+            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textColor="@color/onSurface"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/sync_banner_text"
+            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+            android:textColor="@color/onSurfaceVariant" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/banner_google"
+            style="@style/Widget.App.Pill.Ink"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/continue_with_google"
+            app:icon="@drawable/ic_google_g"
+            app:iconTint="@null" />
+
+    </LinearLayout>
+
+    <!-- Signed in: where it syncs -->
+    <TextView
+        android:id="@+id/banner_note"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:drawablePadding="6dp"
+        android:gravity="center_vertical"
+        android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+        android:textColor="@color/onSurfaceVariant"
+        android:visibility="gone"
+        tools:text="Synced with someone@gmail.com" />
+
+</FrameLayout>

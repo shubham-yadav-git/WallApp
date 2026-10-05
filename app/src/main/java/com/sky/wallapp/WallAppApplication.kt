@@ -6,13 +6,20 @@ import com.google.firebase.database.DatabaseException
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.Logger
 import androidx.work.Configuration
+import com.bumptech.glide.Glide
+import com.bumptech.glide.GlideBuilder
+import com.bumptech.glide.load.engine.cache.InternalCacheDiskCacheFactory
+import com.bumptech.glide.load.engine.executor.GlideExecutor
 
 class WallAppApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        configureGlide()
         configureFirebasePersistenceOnce()
         enableFirebaseDebugLogging()
+        SavedRepository.init(this)
+        WallpaperRepository.prewarm(this)
         AutoWallpaperManager.ensureScheduledIfEnabled(this)
     }
 
@@ -46,6 +53,19 @@ class WallAppApplication : Application(), Configuration.Provider {
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error enabling Firebase debug logging: ${e.message}")
         }
+    }
+
+    /**
+     * Configured here (not via @GlideModule, which needs Glide's annotation processor): a 500 MB
+     * disk cache and more download threads so a batch of masonry tiles is measured in parallel.
+     */
+    private fun configureGlide() {
+        Glide.init(
+            this,
+            GlideBuilder()
+                .setDiskCache(InternalCacheDiskCacheFactory(this, 500L * 1024 * 1024))
+                .setSourceExecutor(GlideExecutor.newSourceBuilder().setThreadCount(8).build())
+        )
     }
 
     override val workManagerConfiguration: Configuration

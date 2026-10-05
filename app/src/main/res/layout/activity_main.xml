@@ -24,12 +24,144 @@
             android:paddingBottom="8dp"
             app:layout_scrollFlags="scroll|enterAlways|snap">
 
-            <!-- Home: category pills ("All" + Firebase categories) -->
+            <!-- Home: brand, search, account (like the website header) -->
+            <LinearLayout
+                android:id="@+id/home_header"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="60dp"
+                android:orientation="horizontal"
+                android:paddingStart="12dp"
+                android:paddingEnd="8dp">
+
+                <LinearLayout
+                    android:id="@+id/brand"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/app_name"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@drawable/brand_mark_bg"
+                        android:gravity="center"
+                        android:importantForAccessibility="no"
+                        android:text="@string/brand_mark"
+                        android:textColor="@color/white"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/brand_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:importantForAccessibility="no"
+                        android:letterSpacing="-0.02"
+                        android:text="@string/app_name"
+                        android:textColor="@color/onSurface"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/search_bar"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/search_field_bg"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="2dp">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_search_24"
+                        app:tint="@color/onSurfaceVariant" />
+
+                    <EditText
+                        android:id="@+id/search_input"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@null"
+                        android:hint="@string/search_hint"
+                        android:imeOptions="actionSearch"
+                        android:importantForAutofill="no"
+                        android:inputType="text"
+                        android:maxLines="1"
+                        android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+                        android:textColor="@color/onSurface"
+                        android:textColorHint="@color/onSurfaceVariant" />
+
+                    <ImageButton
+                        android:id="@+id/search_clear"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/clear_search"
+                        android:src="@drawable/ic_close_24"
+                        android:visibility="gone"
+                        app:tint="@color/onSurfaceVariant" />
+
+                </LinearLayout>
+
+                <FrameLayout
+                    android:id="@+id/account_slot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp">
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/header_avatar"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_margin="4dp"
+                        android:background="@color/onSurface"
+                        android:contentDescription="@string/account"
+                        android:scaleType="centerCrop"
+                        android:visibility="gone"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Pill" />
+
+                    <TextView
+                        android:id="@+id/header_avatar_initial"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_margin="4dp"
+                        android:gravity="center"
+                        android:importantForAccessibility="no"
+                        android:textColor="@color/surface"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/header_sign_in"
+                        style="@style/Widget.App.TextAction"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/sign_in"
+                        android:visibility="gone" />
+
+                </FrameLayout>
+
+            </LinearLayout>
+
+            <!-- Home: All, 🔥 Popular, then categories -->
             <HorizontalScrollView
                 android:id="@+id/category_scroll"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
                 android:clipToPadding="false"
                 android:paddingHorizontal="12dp"
                 android:scrollbars="none">
@@ -46,94 +178,16 @@
             </HorizontalScrollView>
 
             <!-- Saved / You: large screen title -->
-            <LinearLayout
-                android:id="@+id/title_row"
+            <TextView
+                android:id="@+id/screen_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:minHeight="56dp"
-                android:orientation="horizontal"
-                android:paddingStart="@dimen/screen_side_padding"
-                android:paddingEnd="4dp"
-                android:visibility="gone">
-
-                <TextView
-                    android:id="@+id/screen_title"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAppearance="@style/TextAppearance.App.ScreenTitle"
-                    tools:text="@string/tab_saved" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/sort_button"
-                    style="@style/Widget.App.DetailIconButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:contentDescription="@string/sort_favorites_title"
-                    android:visibility="gone"
-                    app:icon="@drawable/ic_sort_24" />
-
-            </LinearLayout>
-
-            <!-- Search: pill search field -->
-            <LinearLayout
-                android:id="@+id/search_bar"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginHorizontal="@dimen/screen_side_padding"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/search_field_bg"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="14dp"
-                android:paddingEnd="4dp"
-                android:visibility="gone">
-
-                <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:importantForAccessibility="no"
-                    android:src="@drawable/ic_search_24"
-                    app:tint="@color/onSurfaceVariant" />
-
-                <EditText
-                    android:id="@+id/search_input"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_marginStart="10dp"
-                    android:layout_weight="1"
-                    android:background="@null"
-                    android:hint="@string/search_hint"
-                    android:imeOptions="actionSearch"
-                    android:importantForAutofill="no"
-                    android:inputType="text"
-                    android:maxLines="1"
-                    android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
-                    android:textColor="@color/onSurface"
-                    android:textColorHint="@color/onSurfaceVariant" />
-
-                <ImageButton
-                    android:id="@+id/search_clear"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/clear_search"
-                    android:src="@drawable/ic_close_24"
-                    android:visibility="gone"
-                    app:tint="@color/onSurfaceVariant" />
-
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/search_section_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
                 android:paddingHorizontal="@dimen/screen_side_padding"
-                android:text="@string/search_explore"
-                android:textAppearance="@style/TextAppearance.App.SectionTitle"
-                android:visibility="gone" />
+                android:textAppearance="@style/TextAppearance.App.ScreenTitle"
+                android:visibility="gone"
+                tools:text="@string/tab_saved" />
 
         </LinearLayout>
 
@@ -145,27 +199,16 @@
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- Masonry wallpaper feed (Home, Saved, search results) -->
+        <!-- Home feed and Saved tabs (masonry + full-width rows) -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/feed_recycler"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"
             android:paddingHorizontal="@dimen/feed_side_padding"
-            android:paddingTop="2dp"
             tools:listitem="@layout/row" />
 
-        <!-- Search: category idea tiles -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/category_grid"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:paddingHorizontal="11dp"
-            android:visibility="gone"
-            tools:listitem="@layout/item_category_compact" />
-
-        <!-- You: app profile + settings -->
+        <!-- You: account + settings -->
         <androidx.core.widget.NestedScrollView
             android:id="@+id/profile_scroll"
             android:layout_width="match_parent"
@@ -178,27 +221,6 @@
                 layout="@layout/content_profile" />
 
         </androidx.core.widget.NestedScrollView>
-
-        <com.google.android.material.progressindicator.CircularProgressIndicator
-            android:id="@+id/loading_progress"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:indeterminate="true"
-            android:visibility="gone"
-            app:indicatorColor="@color/onSurface" />
-
-        <TextView
-            android:id="@+id/empty_state_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:gravity="center"
-            android:paddingHorizontal="40dp"
-            android:text="@string/empty_wallpapers"
-            android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
-            android:textColor="@color/onSurfaceVariant"
-            android:visibility="gone" />
 
     </FrameLayout>
 

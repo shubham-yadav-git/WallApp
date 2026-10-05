@@ -16,7 +16,7 @@ can enable a daily auto-wallpaper rotation from favorites.
 - **Build:** Gradle (Groovy DSL), AGP 9.1 with built-in Kotlin, JDK 21
 - **SDK:** minSdk 24, target/compileSdk 36
 - **Backend:** Firebase Realtime Database (read-only from the app), no own server
-- **Other SDKs:** Firebase Analytics + Messaging, AdMob native ads (in-feed), Play In-App Update, Play In-App Review, Glide 5, WorkManager
+- **Other SDKs:** Firebase Analytics + Messaging + Auth, Credential Manager (Google sign-in), AdMob native ads (in-feed), Play In-App Update, Play In-App Review, Glide 5, WorkManager
 
 ## Commands
 
@@ -52,90 +52,106 @@ only automated check that catches most mistakes. There is no meaningful test sui
 - Ads are **native in-feed "sponsored pins"** (no banner). `FeedAds` is disabled
   if `native_ad_unit_id` is blank.
 
+## Website parity
+
+The app mirrors the website [wallapp.shubhamy.in](https://wallapp.shubhamy.in)
+(repo `shubham-yadav-git/wallapp-react`, private) and shares its Firebase backend.
+Several files are **ports of website files and must stay in sync** with them:
+
+| App | Website source of truth |
+|---|---|
+| `ImageUrls.kt` (+ `ImageUrlsTest`) | `src/lib/imageUrls.js` (+ tests) |
+| `FeedSnapshot.kt` | `scripts/build-feed.mjs`, `src/lib/feedSnapshot.js` (URL prefixes!) |
+| `WallpaperRepository.kt` | `src/features/public/usePublicRecords.js`, `src/hooks/useCategories.js` |
+| `SavedStore.kt` (+ `SavedStoreTest`) | `src/lib/savedStore.js` (+ tests) — storage JSON shape is shared |
+| `SavedSync.kt` | `src/features/public/savedSync.js` |
+| `PopularityStats.kt` | `src/features/public/stats.js` |
+| `PinUtils.kt` (+ `PinUtilsTest`) | `src/features/public/pinUtils.js` (FNV-1a hash, share URL) |
+
 ## Source map (`app/src/main/java/com/sky/wallapp/`)
 
 | File | Role |
 |---|---|
-| `WallAppApplication.kt` | App init: Firebase offline persistence, WorkManager config, re-schedules auto-wallpaper |
-| `Splashscreen` (`splashscreen.kt`) | Legacy splash Activity — **not** in the manifest; `MainActivity` is the launcher and uses the SplashScreen API |
-| `MainActivity.kt` | Pinterest-style shell with bottom nav tabs: **Home** (category chips + masonry feed; "All" = trending mix), **Search** (category tiles; client-side search over the loaded pool), **Saved** (favorites + sort), **You** (auto-wallpaper, updates, rate/share/feedback/privacy). Also in-app update |
-| `FeedAds.kt` | Loads up to 5 AdMob native ads (refreshed after ~55 min) and renders them as pins (`item_native_ad.xml`); keep the "Ad" badge + "Sponsored" line (policy) |
-| `ImageActivity.kt` | Pin close-up: large rounded preview, swipe between items, favorite (button / double-tap), set wallpaper, download, share, "More like this" grid from the same feed, in-app review prompt |
-| `PinAdapter.kt` | Masonry adapter; optionally interleaves `FeedAds` (before item 5, then every 12) on Home + Search only, never Saved; staggered layout manager factory (2 columns, 3 at ≥600dp) |
-| `ViewHolder.kt` | Masonry pin cell (`res/layout/row.xml`); per-wallpaper stable aspect ratio, heart toggle |
-| `CategoryAdapter.kt` | Search-tab category tiles; lazily fetches each category's first image as its thumbnail |
-| `Model.kt` / `Category.kt` | Firebase data classes (see schema below); `Model.displayUrl` applies the image URL rule |
-| `FavoritesStore.kt` | Local favorites as JSON in SharedPreferences, keyed by `image` URL |
-| `WallpaperSwipeSession.kt` | In-memory feed handoff from list → detail (max 6 sessions, lost on process death) |
+| `WallAppApplication.kt` | App init: Glide config (500 MB disk cache, 8 source threads), Firebase persistence, `SavedRepository.init`, `WallpaperRepository.prewarm`, re-schedules auto-wallpaper |
+| `MainActivity.kt` | Tabs **Home** (website header: brand, search, account; chips All / 🔥 Popular / categories; recently viewed strip; masonry feed paged 30 at a time; native ads every 15), **Saved** (sync banner; Favourites / Collections / Recently viewed), **You** (account + settings). Handles App Links `?pin=` / `?c=` |
+| `ImageActivity.kt` | Close-up: contained image over blurred copy, counter, swipe through the opening list, Share (web link) / Open full size / Download (DownloadManager) / Save ▾ / Set as wallpaper, category chip, "More like this" (60, seeded by the image); related opens push a Back step |
+| `CollectionActivity.kt` | One collection: rename, delete (Undo shown on Saved), long-press to remove a wallpaper (Undo) |
+| `SaveToSheet.kt` | "Save to…" bottom sheet: Favourites, collections, inline New collection |
+| `FeedAdapter.kt` | One `ListAdapter` for every masonry screen; `FeedRow` types (pin, ad, heading, empty, recent strip, sync banner, saved tabs, collection card); layout manager factory (2/3/4 columns) |
+| `ViewHolder.kt` | Pin tile: ratio from `RatioCache`, placeholder colour from the key, fallback image sources, saved badge |
+| `RatioCache.kt` | Tile height/width: known from URL/fields or measured before placement (2.5 s cap → fallback 1.4), so tiles never change shape |
+| `Wallpaper.kt` | App-wide wallpaper model; `key` = `"{category}/{id}"`; defensive parse from a `DataSnapshot` |
+| `WallpaperRepository.kt` | Loads everything: cached feed.json → fresh feed.json → live `orderByKey().startAfter(last)` per category (full live read only without a snapshot). Never reads the DB root |
+| `SavedRepository.kt` | Device copy of saved data (prefs key `wallapp:saved:v1`) + actions with analytics; migrates old URL-based favourites once |
+| `SavedSync.kt` | Google sign-in (Credential Manager → Firebase Auth) and `/users/{uid}/saved` sync |
+| `PopularityStats.kt` | `/stats/{path}/{id}` downloads (+1 once per device) and favorites (±1) |
+| `FeedAds.kt` | Up to 5 AdMob native ads rendered as pins; keep the "Ad" badge + "Sponsored" line (policy) |
+| `WallpaperSwipeSession.kt` | In-memory list handoff to the detail screen (falls back to lookup by key) |
 | `WallpaperApplier.kt` | Resizes/composes a bitmap to screen size (FIXED or SCROLLABLE) and calls `WallpaperManager` |
-| `AutoWallpaperManager.kt` / `DailyWallpaperWorker.kt` | Opt-in daily rotation through favorites via WorkManager |
-| `AnalyticsTracker.kt` | Thin wrapper over Firebase Analytics; params are truncated to 100 chars |
-| `WallAppGlideModule.kt` | Glide config (500 MB disk cache) |
+| `AutoWallpaperManager.kt` / `DailyWallpaperWorker.kt` | Opt-in daily rotation through favourites (by key) via WorkManager |
+| `AnalyticsTracker.kt` | Firebase Analytics wrapper; website event names: `select_content`, `search`, `file_download`, `share`, `add_to_wishlist`, `remove_from_wishlist`, `create_collection`, `login` |
 
-## Firebase Realtime Database schema
-
-The app only reads. Data is maintained outside this repo.
+## Firebase Realtime Database
 
 ```
-/categories/{key}: { name, path, icon }        -> Category
-/{category.path}/{key}: { title, image, search, thumbs, cloudinaryUrl }  -> Model
+/categories/{pushId}    { name, path, icon?, order? }   sorted by order (missing last), then push key
+/{path}/{pushId}        { title, search, image, cloudinaryUrl?, thumbs?, width?, height? }
+/stats/{path}/{pushId}  { downloads, favorites }
+/users/{uid}/saved      { json: "<SavedStore JSON>", updatedAt }
 ```
 
-- `Model` and `Category` are deserialized by reflection and are `-keep`-ed in
-  `app/proguard-rules.pro`. **Do not rename their properties or make them
-  non-nullable / remove the default constructor** — release builds will silently
-  get nulls or crash.
-- **Image URL rule:** display/download `cloudinaryUrl` when non-blank, otherwise
-  `image` (the primary host returns HTTP 402 when over quota). Use `Model.displayUrl`
-  for every new image load.
-- **Identity rule:** `image` is the stable ID for a wallpaper (favorites, last
-  applied auto-wallpaper). Don't key on `cloudinaryUrl` or `title`.
-- Category feeds load once via `addListenerForSingleValueEvent` (offline cache on),
-  not a live `FirebaseRecyclerAdapter`, so ads can be interleaved.
-- "Trending" = first 20 items from every category path, merged and shuffled
-  client-side (`MainActivity.loadTrending`). It costs one RTDB read per category.
+- **Rules (deployed from the website repo):** reads are public except the **root**
+  and `/users`. The app may only write `/stats/**` counters (+1 / ±1 via
+  `ServerValue.increment`) and the signed-in user's own `/users/{uid}/saved`.
+  Never read `/` or write anything else; never ship secrets (Cloudinary secret,
+  service accounts) in the APK.
+- Records are parsed by hand (`Wallpaper.fromSnapshot`), not by reflection, so
+  unexpected field types can't crash the app.
+- **Image URLs:** use `ImageUrls` (tile 474/236 px, large 1080/1400 px, original,
+  download). Never load originals in lists. Main URL = `cloudinaryUrl` else `image`.
+- **Identity:** `Wallpaper.key` (`"{path}/{pushId}"`) everywhere — favourites,
+  collections, recent, stats, links. Push keys sort by time (newest = descending).
+- feed.json (`https://wallapp.shubhamy.in/feed.json`, regenerated ~30 min) is cached
+  in `filesDir/feed.json` and parsed with Gson's streaming reader.
 
 ## UI conventions
 
-- Pinterest-style, image-first: neutral surfaces (white / near-black), one red accent
-  (`@color/primary`) reserved for the primary CTA and favorited hearts.
-- Wallpaper lists are masonry pins: reuse `ViewHolder.bind(...)` + `PinAdapter`
-  (or `ViewHolder.inflate` in a `FirebaseRecyclerAdapter`) rather than new cell layouts.
-- Inside a `NestedScrollView`, use a plain `StaggeredGridLayoutManager`, not
-  `PinAdapter.newLayoutManager` (its `GAP_HANDLING_NONE` variant measures to 0 height there).
-- Both activities are edge-to-edge (`enableEdgeToEdge()`); handle insets explicitly.
+- Website design tokens: accent `#E6553A` (`@color/primary`), ink `#111111`, muted
+  `#767676`, soft `#EFEFEF`; 16dp tile corners, 8dp gaps, 36dp chips, 48dp pill
+  buttons (`Widget.App.Pill.*`), black rounded snackbar. Dark theme swaps neutrals.
+- Every masonry list goes through `FeedAdapter` + `FeedRow`; measure ratios with
+  `RatioCache.measure` before revealing pins.
+- Inside a `NestedScrollView`, use `FeedAdapter.newLayoutManager(ctx, insideScrollView = true)`
+  (the `GAP_HANDLING_NONE` variant measures to 0 height there).
+- All activities are edge-to-edge (`enableEdgeToEdge()`); handle insets explicitly.
+- Feedback via snackbars with View / Undo, matching the website's wording.
 
 ## Conventions
 
 - Match the existing style: plain Activities + ViewBinding, Kotlin `object`
-  singletons for stores/managers, SharedPreferences via `androidx.core.content.edit {}`.
-  Each feature uses its own prefs file name constant — don't share keys across files.
-- User-facing strings go in `res/values/strings.xml` (some legacy code still
-  hardcodes strings; don't add more). Colors have light + `values-night` variants.
-- Log analytics through `AnalyticsTracker.logEvent(snake_case_name, mapOf(...))`.
-  Don't send PII; titles/queries are OK.
-- Always remove Firebase listeners / stop `FirebaseRecyclerAdapter`s you start
-  (see `onDestroy` in `MainActivity`).
-- Load images with Glide using `applicationContext` or a live Activity context
-  (see the destroyed-Activity guard in `CategoryAdapter`).
-- Wallpaper setting and image download must stay off the main thread
-  (WorkManager / coroutines / Glide `submit()` on IO).
+  singletons for stores/managers, StateFlow + `repeatOnLifecycle` for observing,
+  SharedPreferences via `androidx.core.content.edit {}`.
+- User-facing strings go in `res/values/strings.xml`. Colors have light + `values-night` variants.
+- Wallpaper setting, downloads and feed parsing stay off the main thread.
 - Keep minSdk 24 compatibility; gate newer APIs with `Build.VERSION.SDK_INT`.
 - Dependencies are declared inline in `app/build.gradle` (no version catalog).
+- Run `./gradlew testDebugUnitTest` after touching any ported file.
+
+## Setup still required (outside the code)
+
+- **Google sign-in:** add the SHA-1/SHA-256 of the debug keystore, the upload key and
+  the Play App Signing key to the `com.sky.wallapp` app in Firebase, then replace
+  `app/google-services.json`. Until then sign-in fails.
+- **App Links:** publish `docs/assetlinks.json` (with the real release SHA-256) at
+  `https://wallapp.shubhamy.in/.well-known/assetlinks.json` (website `public/.well-known/`).
 
 ## Known issues / tech debt (verify before relying on these)
 
 - `WallAppApplication` enables Firebase `Logger.Level.DEBUG` in all builds, including release.
-- `FavoritesStore` doesn't save `cloudinaryUrl`, so favorites and the daily worker
-  always load from the primary `image` host (the 402 fallback never applies to them).
-- `ImageActivity.saveImage()` writes directly to public `Pictures/WallApp` with
-  `File` APIs; this likely fails on Android 10 (API 29) without `MediaStore`.
-- Search only covers the loaded pool (first 20 items per category + favorites),
-  not the full database.
-- `Splashscreen` Activity, the `navigation-*` dependencies, `firebase-ui-database`,
-  and `firebase-messaging` (no messaging service is registered) are unused.
+- First launch downloads the 2.3 MB feed before showing tiles; later launches use the cache.
+- `Splashscreen` Activity, the `navigation-*` dependencies and `firebase-messaging`
+  (no messaging service is registered) are unused.
 - `app/release/app-release.aab` is a tracked build artifact.
-- Unit/UI tests are placeholders only.
 
 ## Roadmap
 

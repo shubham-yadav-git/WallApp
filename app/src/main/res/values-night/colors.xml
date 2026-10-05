@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Neutral, image-first palette: the wallpapers carry the color -->
-    <color name="primary">#E60023</color>
+    <color name="primary">#E6553A</color>
     <color name="onPrimary">#FFFFFF</color>
-    <color name="primaryContainer">#93000F</color>
-    <color name="onPrimaryContainer">#FFDAD6</color>
+    <color name="primaryContainer">#5C1708</color>
+    <color name="onPrimaryContainer">#FFDAD3</color>
 
-    <color name="secondary">#B5B5B5</color>
+    <color name="secondary">#A3A3A3</color>
     <color name="onSecondary">#111111</color>
-    <color name="secondaryContainer">#3A3A3A</color>
+    <color name="secondaryContainer">#2A2A2A</color>
     <color name="onSecondaryContainer">#EFEFEF</color>
 
     <color name="background">#111111</color>
@@ -16,8 +16,8 @@
     <color name="surface">#111111</color>
     <color name="onSurface">#EFEFEF</color>
     <color name="surfaceVariant">#2A2A2A</color>
-    <color name="onSurfaceVariant">#B5B5B5</color>
-    <color name="outline">#4A4A4A</color>
+    <color name="onSurfaceVariant">#A3A3A3</color>
+    <color name="outline">#383838</color>
 
     <!-- Material 3 surface containers (bottom nav, dialogs, sheets) -->
     <color name="surfaceContainerLowest">#0B0B0B</color>
@@ -27,7 +27,7 @@
     <color name="surfaceContainerHighest">#2A2A2A</color>
 
     <!-- Placeholder shown behind pins while images load -->
-    <color name="pinPlaceholder">#262626</color>
+    <color name="pinPlaceholder">#2A2A2A</color>
 
     <!-- Dark Mode Splash Background -->
     <color name="splash_background">#1C1B1F</color>
@@ -39,4 +39,10 @@
     <color name="colorPrimary">@color/primary</color>
     <color name="colorPrimaryDark">#000000</color>
     <color name="colorAccent">@color/primary</color>
+
+    <!-- Website design tokens (neutrals swapped for dark) -->
+    <color name="primaryPressed">#CC4429</color>
+    <color name="softPressed">#383838</color>
+    <color name="snackbarBackground">#2A2A2A</color>
+    <color name="heart">#E6553A</color>
 </resources>
