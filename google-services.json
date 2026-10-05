@@ -1,34 +1,101 @@
 {
   "project_info": {
-    "project_number": "1025699317685",
-    "firebase_url": "https://wallpaper-7b384.firebaseio.com",
-    "project_id": "wallpaper-7b384",
-    "storage_bucket": "wallpaper-7b384.appspot.com"
+    "project_number": "479261123124",
+    "firebase_url": "https://wallapp-611ae.firebaseio.com",
+    "project_id": "wallapp-611ae",
+    "storage_bucket": "wallapp-611ae.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1025699317685:android:2b7485d33438406a2fbbfc",
+        "mobilesdk_app_id": "1:479261123124:android:ac8f2d8a7af24d757da061",
         "android_client_info": {
-          "package_name": "com.sky.wallapp"
+          "package_name": "com.sky.firebase"
         }
       },
       "oauth_client": [
         {
-          "client_id": "1025699317685-e53fb9f0bftnjujv9bnfra7vepgdkld2.apps.googleusercontent.com",
+          "client_id": "479261123124-bh2568lji8i1bcvjfkpqbgj7mvdga7mr.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyC19NDpax-6AOSVM1gYAcYYarqb1bbZ-48"
+          "current_key": "AIzaSyCOtyiLIz8AEA8MOauKOqsdiDVhVvg6H58"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "1025699317685-e53fb9f0bftnjujv9bnfra7vepgdkld2.apps.googleusercontent.com",
+              "client_id": "479261123124-bh2568lji8i1bcvjfkpqbgj7mvdga7mr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:479261123124:android:6eb72dcfa5a632f37da061",
+        "android_client_info": {
+          "package_name": "com.sky.wallapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "479261123124-bh2568lji8i1bcvjfkpqbgj7mvdga7mr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOtyiLIz8AEA8MOauKOqsdiDVhVvg6H58"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "479261123124-bh2568lji8i1bcvjfkpqbgj7mvdga7mr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      },
+      "admob_app_id": "ca-app-pub-9842479759097106~1672800275"
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:479261123124:android:10b8e3bc27840ae97da061",
+        "android_client_info": {
+          "package_name": "com.wallapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "479261123124-d7i7br6h3luuquhd1p08l0a982bd3pv4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wallapp",
+            "certificate_hash": "df44dbab2cecfc5b2252edddc0d9ad7a32ce9617"
+          }
+        },
+        {
+          "client_id": "479261123124-bh2568lji8i1bcvjfkpqbgj7mvdga7mr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOtyiLIz8AEA8MOauKOqsdiDVhVvg6H58"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "479261123124-bh2568lji8i1bcvjfkpqbgj7mvdga7mr.apps.googleusercontent.com",
               "client_type": 3
             }
           ]
