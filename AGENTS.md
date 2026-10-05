@@ -125,8 +125,6 @@ The app only reads. Data is maintained outside this repo.
 
 ## Known issues / tech debt (verify before relying on these)
 
-- `AndroidManifest.xml` hardcodes the **production** AdMob app ID instead of
-  `${admobAppId}`, so the `manifestPlaceholders` switch in `app/build.gradle` has no effect.
 - `WallAppApplication` enables Firebase `Logger.Level.DEBUG` in all builds, including release.
 - `FavoritesStore` doesn't save `cloudinaryUrl`, so favorites and the daily worker
   always load from the primary `image` host (the 402 fallback never applies to them).

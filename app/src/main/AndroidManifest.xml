@@ -31,7 +31,7 @@
 
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-9842479759097106~1672800275" />
+            android:value="${admobAppId}" />
 
         <activity
             android:name="com.sky.wallapp.MainActivity"
