@@ -7,7 +7,7 @@
 - **Package**: com.sky.wallapp
 - **Current Version**: see `versionCode` / `versionName` in `app/build.gradle`
 - **Platform**: Android (Kotlin)
-- **Min SDK**: 23 | Target SDK: 36
+- **Min SDK**: 24 | Target SDK: 36
 - **Java**: 21
 - **Build Tool**: Gradle
 

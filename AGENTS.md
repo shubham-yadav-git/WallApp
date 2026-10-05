@@ -14,7 +14,7 @@ can enable a daily auto-wallpaper rotation from favorites.
 - **Language:** Kotlin only (the two `Example*Test.java` files are template leftovers)
 - **UI:** XML layouts + ViewBinding, Activities (no Fragments, no Compose)
 - **Build:** Gradle (Groovy DSL), AGP 9.1 with built-in Kotlin, JDK 21
-- **SDK:** minSdk 23, target/compileSdk 36
+- **SDK:** minSdk 24, target/compileSdk 36
 - **Backend:** Firebase Realtime Database (read-only from the app), no own server
 - **Other SDKs:** Firebase Analytics + Messaging, AdMob native ads (in-feed), Play In-App Update, Play In-App Review, Glide 5, WorkManager
 
@@ -120,7 +120,7 @@ The app only reads. Data is maintained outside this repo.
   (see the destroyed-Activity guard in `CategoryAdapter`).
 - Wallpaper setting and image download must stay off the main thread
   (WorkManager / coroutines / Glide `submit()` on IO).
-- Keep minSdk 23 compatibility; gate newer APIs with `Build.VERSION.SDK_INT`.
+- Keep minSdk 24 compatibility; gate newer APIs with `Build.VERSION.SDK_INT`.
 - Dependencies are declared inline in `app/build.gradle` (no version catalog).
 
 ## Known issues / tech debt (verify before relying on these)
