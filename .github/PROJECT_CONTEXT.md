@@ -1,11 +1,13 @@
 # WallApp Project Context
 
+> For AI agents: the canonical, up-to-date instructions are in `/AGENTS.md`.
+
 ## Quick Facts
 - **App Name**: WallApp
-- **Package**: [Check AndroidManifest.xml]
-- **Current Version**: 1.2.3 (Code: 16)
-- **Platform**: Android (Java)
-- **Min SDK**: 21 | Target SDK: 34
+- **Package**: com.sky.wallapp
+- **Current Version**: see `versionCode` / `versionName` in `app/build.gradle`
+- **Platform**: Android (Kotlin)
+- **Min SDK**: 23 | Target SDK: 36
 - **Java**: 21
 - **Build Tool**: Gradle
 
@@ -19,9 +21,7 @@
 ✅ In-app updates fully implemented
 
 ## Next Version Numbers
-- Next patch: 1.2.4 (Code: 17)
-- Next minor: 1.3.0 (Code: 18)
-- Next major: 2.0.0 (Code: 19)
+Increment `versionCode` by 1 from the current value in `app/build.gradle`; bump `versionName` semantically.
 
 ## GitHub Repository
 - URL: https://github.com/shubham-yadav-git/WallApp
