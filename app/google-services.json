@@ -44,6 +44,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "479261123124-ho9fim8e4dgab0i3a73b75uohmkrj9g9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sky.wallapp",
+            "certificate_hash": "5e62dc8f83b03a85e7320c57537adf331ac1c2f8"
+          }
+        },
+        {
+          "client_id": "479261123124-jl94bl0noiu2b095c9oq917liriobhpd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sky.wallapp",
+            "certificate_hash": "9be77b997dbed1b386d3aba52dd7cb1ced1a311e"
+          }
+        },
+        {
           "client_id": "479261123124-bh2568lji8i1bcvjfkpqbgj7mvdga7mr.apps.googleusercontent.com",
           "client_type": 3
         }
