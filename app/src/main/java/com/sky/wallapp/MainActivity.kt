@@ -84,6 +84,7 @@ class MainActivity : AppCompatActivity(), FeedListener {
     private var repo = WallpaperRepository.State()
     private var saved = SavedStore.emptyState()
     private var account = SavedSync.Account()
+    private var signingIn = false
 
     // Home feed list cache (filtering + sorting 10k+ records is only redone when inputs change)
     private var feedInputs: Triple<List<Wallpaper>, String, String>? = null
@@ -696,9 +697,34 @@ class MainActivity : AppCompatActivity(), FeedListener {
     // ── Account ─────────────────────────────────────────────────────────────────
 
     private fun signIn() {
+        if (signingIn) return
+        setSigningIn(true)
         lifecycleScope.launch {
-            SavedSync.signInWithGoogle(this@MainActivity)?.let { error -> snackbar(error) }
+            val result = SavedSync.signInWithGoogle(this@MainActivity)
+            setSigningIn(false)
+            when (result) {
+                is SavedSync.SignInResult.Success -> snackbar(
+                    result.name?.let { getString(R.string.signed_in_as, it) } ?: getString(R.string.signed_in)
+                )
+                is SavedSync.SignInResult.Failed -> snackbar(result.message, getString(R.string.details)) {
+                    MaterialAlertDialogBuilder(this@MainActivity)
+                        .setTitle(R.string.sign_in_error_title)
+                        .setMessage(result.detail ?: result.message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }
+            }
         }
+    }
+
+    /** Disables the sign-in buttons and shows "Opening Google…" while the picker/auth runs. */
+    private fun setSigningIn(active: Boolean) {
+        signingIn = active
+        val profile = binding.profile
+        profile.accountGoogle.isEnabled = !active
+        profile.accountGoogle.setText(if (active) R.string.opening_google else R.string.continue_with_google)
+        binding.headerSignIn.isEnabled = !active
+        binding.headerSignIn.setText(if (active) R.string.opening_google else R.string.sign_in)
     }
 
     private fun signOut() {

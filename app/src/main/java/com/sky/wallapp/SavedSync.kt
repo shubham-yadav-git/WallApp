@@ -23,6 +23,7 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ServerValue
 import com.google.firebase.database.ValueEventListener
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -142,8 +143,20 @@ object SavedSync {
         syncingUid = null
     }
 
-    /** Shows the Google account picker and signs in; returns an error message or null. */
-    suspend fun signInWithGoogle(activity: Activity): String? {
+    /** Outcome of [signInWithGoogle]; [Failed.detail] is the raw error, shown behind "Details". */
+    sealed interface SignInResult {
+        data class Success(val name: String?) : SignInResult
+        data class Failed(val message: String, val detail: String?) : SignInResult
+    }
+
+    /** Shows the Google account picker and signs in. */
+    suspend fun signInWithGoogle(activity: Activity): SignInResult {
+        fun failed(messageRes: Int, reason: String, detail: String?): SignInResult {
+            Log.w(TAG, "Sign-in failed ($reason): $detail")
+            AnalyticsTracker(FirebaseAnalytics.getInstance(activity))
+                .logEvent("login_failed", mapOf("reason" to reason, "detail" to detail?.take(100)))
+            return SignInResult.Failed(activity.getString(messageRes), detail)
+        }
         return try {
             val option = GetSignInWithGoogleOption.Builder(activity.getString(R.string.default_web_client_id)).build()
             val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
@@ -152,25 +165,24 @@ object SavedSync {
             if (credential !is CustomCredential ||
                 credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
             ) {
-                return activity.getString(R.string.sign_in_failed)
+                return failed(R.string.sign_in_failed, "credential_type", credential.type)
             }
             val idToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
-            FirebaseAuth.getInstance().signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await()
+            val user = FirebaseAuth.getInstance()
+                .signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await().user
             AnalyticsTracker(FirebaseAnalytics.getInstance(activity)).logEvent("login", mapOf("method" to "Google"))
-            null
+            SignInResult.Success(user?.displayName ?: user?.email)
         } catch (e: GetCredentialCancellationException) {
             // Also what Google returns when the app's SHA fingerprint isn't registered in Firebase
-            Log.w(TAG, "Sign-in cancelled: ${e.type} ${e.message}")
-            null
+            failed(R.string.sign_in_cancelled, "cancelled", "${e.type}: ${e.message}")
         } catch (e: NoCredentialException) {
-            Log.w(TAG, "No credential: ${e.message}")
-            activity.getString(R.string.sign_in_no_account)
+            failed(R.string.sign_in_no_account, "no_credential", "${e.type}: ${e.message}")
         } catch (e: GetCredentialException) {
-            Log.w(TAG, "Sign-in failed: ${e.type} ${e.message}")
-            activity.getString(R.string.sign_in_failed)
+            failed(R.string.sign_in_failed, "credential", "${e.type}: ${e.message}")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Log.w(TAG, "Sign-in failed: ${e.message}")
-            activity.getString(R.string.sign_in_failed)
+            failed(R.string.sign_in_failed, "firebase", "${e.javaClass.simpleName}: ${e.message}")
         }
     }
 

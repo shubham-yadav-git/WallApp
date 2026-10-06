@@ -103,6 +103,11 @@
     <string name="continue_with_google">Continue with Google</string>
     <string name="opening_google">Opening Google…</string>
     <string name="sign_in_failed">Couldn’t sign in. Please try again.</string>
+    <string name="sign_in_cancelled">Sign-in was cancelled.</string>
+    <string name="sign_in_error_title">Sign-in error</string>
+    <string name="signed_in">Signed in</string>
+    <string name="signed_in_as">Signed in as %1$s</string>
+    <string name="details">Details</string>
     <string name="sign_in_no_account">No Google account is available on this device.</string>
     <string name="signed_out">Signed out. Your saved items are safe in your account.</string>
     <string name="account">Account</string>
