@@ -735,6 +735,10 @@ class MainActivity : AppCompatActivity(), FeedListener {
             analyticsTracker.logEvent("check_updates_manual")
             checkForAppUpdates(force = true)
         }
+        profile.rowWebsite.setOnClickListener {
+            analyticsTracker.logEvent("nav_visit_website")
+            openWebsite()
+        }
         profile.rowRate.setOnClickListener {
             analyticsTracker.logEvent("nav_rate_app")
             startActivity(Intent(Intent.ACTION_VIEW, playStoreUrl().toUri()))
@@ -760,6 +764,20 @@ class MainActivity : AppCompatActivity(), FeedListener {
             startActivity(Intent(this, PrivacyPolicyActivity::class.java))
         }
         profile.versionText.text = getString(R.string.version_format, appVersionName())
+    }
+
+    /**
+     * Opens the website in the browser. The site root is one of our App Links, so a plain
+     * VIEW intent could route straight back here; the browser selector avoids that.
+     */
+    private fun openWebsite() {
+        val uri = "https://$WEB_HOST/".toUri()
+        val inBrowser = Intent(Intent.ACTION_VIEW, uri).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+            selector = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_BROWSER)
+        }
+        runCatching { startActivity(inBrowser) }
+            .recoverCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
     }
 
     private fun renderProfile() {

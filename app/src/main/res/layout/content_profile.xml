@@ -269,6 +269,12 @@
         android:text="@string/check_for_updates" />
 
     <TextView
+        android:id="@+id/row_website"
+        style="@style/Widget.App.SettingsRow"
+        android:drawableStart="@drawable/ic_open_in_new_24"
+        android:text="@string/nav_visit_website" />
+
+    <TextView
         android:id="@+id/row_rate"
         style="@style/Widget.App.SettingsRow"
         android:drawableStart="@drawable/ic_rate_review_24dp"
