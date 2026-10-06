@@ -158,9 +158,12 @@ object SavedSync {
             FirebaseAuth.getInstance().signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await()
             AnalyticsTracker(FirebaseAnalytics.getInstance(activity)).logEvent("login", mapOf("method" to "Google"))
             null
-        } catch (_: GetCredentialCancellationException) {
+        } catch (e: GetCredentialCancellationException) {
+            // Also what Google returns when the app's SHA fingerprint isn't registered in Firebase
+            Log.w(TAG, "Sign-in cancelled: ${e.type} ${e.message}")
             null
-        } catch (_: NoCredentialException) {
+        } catch (e: NoCredentialException) {
+            Log.w(TAG, "No credential: ${e.message}")
             activity.getString(R.string.sign_in_no_account)
         } catch (e: GetCredentialException) {
             Log.w(TAG, "Sign-in failed: ${e.type} ${e.message}")
