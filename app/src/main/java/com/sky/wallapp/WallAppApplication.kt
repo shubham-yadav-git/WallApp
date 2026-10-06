@@ -15,6 +15,7 @@ class WallAppApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        ThemeSetting.apply(this)
         configureGlide()
         configureFirebasePersistenceOnce()
         enableFirebaseDebugLogging()

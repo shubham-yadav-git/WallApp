@@ -89,6 +89,7 @@ Several files are **ports of website files and must stay in sync** with them:
 | `WallpaperSwipeSession.kt` | In-memory list handoff to the detail screen (falls back to lookup by key) |
 | `WallpaperApplier.kt` | Resizes/composes a bitmap to screen size (FIXED or SCROLLABLE) and calls `WallpaperManager` |
 | `AutoWallpaperManager.kt` / `DailyWallpaperWorker.kt` | Opt-in daily rotation through favourites (by key) via WorkManager |
+| `ThemeSetting.kt` | System default / Light / Dark choice (You tab), applied in `WallAppApplication` via `AppCompatDelegate` |
 | `AnalyticsTracker.kt` | Firebase Analytics wrapper; website event names: `select_content`, `search`, `file_download`, `share`, `add_to_wishlist`, `remove_from_wishlist`, `create_collection`, `login` |
 
 ## Firebase Realtime Database
@@ -118,7 +119,8 @@ Several files are **ports of website files and must stay in sync** with them:
 
 - Website design tokens: accent `#E6553A` (`@color/primary`), ink `#111111`, muted
   `#767676`, soft `#EFEFEF`; 16dp tile corners, 8dp gaps, 36dp chips, 48dp pill
-  buttons (`Widget.App.Pill.*`), black rounded snackbar. Dark theme swaps neutrals.
+  buttons (`Widget.App.Pill.*`), black rounded snackbar. Dark theme swaps neutrals
+  (`values-night/colors.xml`); never hardcode light-only colours in layouts.
 - Every masonry list goes through `FeedAdapter` + `FeedRow`; measure ratios with
   `RatioCache.measure` before revealing pins.
 - Inside a `NestedScrollView`, use `FeedAdapter.newLayoutManager(ctx, insideScrollView = true)`

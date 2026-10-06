@@ -728,6 +728,7 @@ class MainActivity : AppCompatActivity(), FeedListener {
         val profile = binding.profile
         profile.accountGoogle.setOnClickListener { signIn() }
         profile.accountSignOut.setOnClickListener { signOut() }
+        profile.rowTheme.setOnClickListener { showThemeDialog() }
         profile.rowAutoWallpaper.setOnClickListener { handleAutoWallpaperAction() }
         profile.rowRunNow.setOnClickListener { runAutoWallpaperNow() }
         profile.rowCheckUpdate.setOnClickListener {
@@ -784,9 +785,27 @@ class MainActivity : AppCompatActivity(), FeedListener {
             profile.accountSync.compoundDrawablesRelative[0]?.setTint(ContextCompat.getColor(this, R.color.onSurfaceVariant))
         }
 
+        profile.themeValue.setText(ThemeSetting.current(this).label)
+
         val autoEnabled = AutoWallpaperManager.isEnabled(this)
         profile.switchAutoWallpaper.isChecked = autoEnabled
         profile.rowRunNow.isVisible = autoEnabled
+    }
+
+    private fun showThemeDialog() {
+        val modes = ThemeSetting.Mode.entries
+        val current = ThemeSetting.current(this)
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.theme)
+            .setSingleChoiceItems(modes.map { getString(it.label) }.toTypedArray(), modes.indexOf(current)) { dialog, which ->
+                dialog.dismiss()
+                val mode = modes[which]
+                if (mode != current) {
+                    analyticsTracker.logEvent("theme_changed", mapOf("mode" to mode.name.lowercase()))
+                    ThemeSetting.set(this, mode) // recreates the activity in the new theme
+                }
+            }
+            .show()
     }
 
     private fun handleAutoWallpaperAction() {
