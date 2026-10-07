@@ -363,7 +363,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         if (image != null && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
             download(image)
         } else {
-            Toast.makeText(this, "Permission required to save", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.storage_permission_required, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -434,7 +434,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
             } else {
                 performOutcomeHaptic(isSuccess = false)
                 analyticsTracker.logEvent("set_wallpaper_failed", mapOf("error" to result.exceptionOrNull()?.message))
-                Toast.makeText(this@ImageActivity, "Failed: ${result.exceptionOrNull()?.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ImageActivity, R.string.set_wallpaper_failed, Toast.LENGTH_SHORT).show()
             }
         }
     }

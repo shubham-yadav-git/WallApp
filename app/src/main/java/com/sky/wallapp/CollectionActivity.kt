@@ -8,6 +8,8 @@ import android.view.HapticFeedbackConstants
 import android.widget.EditText
 import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -29,6 +31,16 @@ class CollectionActivity : AppCompatActivity(), FeedListener {
     private lateinit var collectionId: String
     private var items: List<Wallpaper> = emptyList()
     private var measuredFor: List<String>? = null
+
+    /** The close-up's "category" / "View saved" results belong to the main screen: pass them on. */
+    private val detailLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result: ActivityResult ->
+        val data = result.data ?: return@registerForActivityResult
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        setResult(RESULT_OK, data)
+        finish()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,15 +129,15 @@ class CollectionActivity : AppCompatActivity(), FeedListener {
     override fun onEmptyAction(actionId: Int) = finish()
 
     override fun onPinClick(row: FeedRow.Pin) {
-        startActivity(ImageActivity.intent(this, items, row.index, "collection"))
+        detailLauncher.launch(ImageActivity.intent(this, items, row.index, "collection"))
     }
 
     override fun onPinLongClick(row: FeedRow.Pin) {
         val collection = collection() ?: return
         binding.grid.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        SavedRepository.toggleInCollection(collection.id, row.image.key)
+        val undo = SavedRepository.removeFromCollection(collection.id, row.image.key)
         Snackbar.make(binding.root, getString(R.string.removed_from_collection, collection.name), 6000)
-            .setAction(R.string.undo) { SavedRepository.toggleInCollection(collection.id, row.image.key) }
+            .setAction(R.string.undo) { undo() }
             .show()
     }
 

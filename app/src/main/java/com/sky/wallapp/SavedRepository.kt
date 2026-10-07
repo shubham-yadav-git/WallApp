@@ -100,6 +100,14 @@ object SavedRepository {
 
     fun toggleInCollection(id: String, key: String) = update { SavedStore.toggleInCollection(it, id, key, now()) }
 
+    /** Removes a wallpaper from a collection and returns an undo that restores its position. */
+    fun removeFromCollection(id: String, key: String): () -> Unit {
+        val index = _state.value.collections.firstOrNull { it.id == id }?.keys?.indexOf(key) ?: -1
+        if (index < 0) return {}
+        update { SavedStore.toggleInCollection(it, id, key, now()) }
+        return { update { SavedStore.restoreToCollection(it, id, key, index, now()) } }
+    }
+
     // ── Migration from the old URL-based favourites ─────────────────────────────
 
     /**

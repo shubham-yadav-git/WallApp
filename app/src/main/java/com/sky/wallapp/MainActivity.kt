@@ -126,22 +126,25 @@ class MainActivity : AppCompatActivity(), FeedListener {
 
     private val detailLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
+    ) { result: ActivityResult -> result.data?.let(::onDetailResult) }
+
+    private val collectionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
     ) { result: ActivityResult ->
         val data = result.data ?: return@registerForActivityResult
+        // A close-up opened from the collection may hand back a category / "View saved" request
+        val name = data.getStringExtra(CollectionActivity.EXTRA_DELETED_NAME) ?: return@registerForActivityResult onDetailResult(data)
+        val undo = CollectionActivity.pendingUndo
+        CollectionActivity.pendingUndo = null
+        snackbar(getString(R.string.deleted_collection, name), getString(R.string.undo)) { undo?.invoke() }
+    }
+
+    private fun onDetailResult(data: Intent) {
         data.getStringExtra(ImageActivity.EXTRA_SELECT_CATEGORY)?.let { path ->
             binding.searchInput.setText("")
             goHome(path)
         }
         if (data.getBooleanExtra(ImageActivity.EXTRA_OPEN_SAVED, false)) goSaved(SavedTab.FAVORITES)
-    }
-
-    private val collectionLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result: ActivityResult ->
-        val name = result.data?.getStringExtra(CollectionActivity.EXTRA_DELETED_NAME) ?: return@registerForActivityResult
-        val undo = CollectionActivity.pendingUndo
-        CollectionActivity.pendingUndo = null
-        snackbar(getString(R.string.deleted_collection, name), getString(R.string.undo)) { undo?.invoke() }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -177,7 +180,15 @@ class MainActivity : AppCompatActivity(), FeedListener {
             activeCategory = state.getString(STATE_CATEGORY, ALL)
             savedTab = SavedTab.entries.firstOrNull { it.name == state.getString(STATE_SAVED_TAB) } ?: SavedTab.FAVORITES
         }
-        handleDeepLink(intent)
+        // A restored activity (or one relaunched from Recents) still carries the original link: skip it
+        val launchedFromHistory = intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+        if (savedInstanceState == null && !launchedFromHistory) {
+            parseDeepLink(intent)?.let { link ->
+                link.category?.let { activeCategory = it }
+                link.savedTab?.let { savedTab = it; currentTab = Tab.SAVED }
+                pendingPin = link.pin
+            }
+        }
 
         val restoredTab = savedInstanceState?.getString(STATE_TAB)
             ?.let { name -> Tab.entries.firstOrNull { it.name == name } }
@@ -190,8 +201,19 @@ class MainActivity : AppCompatActivity(), FeedListener {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handleDeepLink(intent)
-        render()
+        val link = parseDeepLink(intent) ?: return
+        when {
+            link.savedTab != null -> {
+                link.category?.let { activeCategory = it; checkChip(it) }
+                goSaved(link.savedTab)
+            }
+            link.category != null -> {
+                binding.searchInput.setText("")
+                goHome(link.category)
+            }
+        }
+        pendingPin = link.pin
+        openPendingPin()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -664,21 +686,27 @@ class MainActivity : AppCompatActivity(), FeedListener {
 
     // ── Deep links (App Links: https://wallapp.shubhamy.in/?c=…&pin=…) ─────────
 
-    private fun handleDeepLink(intent: Intent?) {
-        val uri: Uri = intent?.data ?: return
-        if (uri.host != WEB_HOST) return
-        uri.getQueryParameter("c")?.takeIf { it.isNotBlank() }?.let { activeCategory = it }
-        pendingPin = uri.getQueryParameter("pin")?.takeIf { it.isNotBlank() }
-        if (uri.getQueryParameter("view") == "saved") {
-            savedTab = when (uri.getQueryParameter("tab")) {
+    private class DeepLink(val category: String?, val pin: String?, val savedTab: SavedTab?)
+
+    /** Reads a wallapp.shubhamy.in link and consumes it (so a later onNewIntent doesn't see it twice). */
+    private fun parseDeepLink(intent: Intent?): DeepLink? {
+        val uri: Uri = intent?.data ?: return null
+        if (uri.host != WEB_HOST) return null
+        intent.data = null
+        val savedTab = if (uri.getQueryParameter("view") == "saved") {
+            when (uri.getQueryParameter("tab")) {
                 "collections" -> SavedTab.COLLECTIONS
                 "recent" -> SavedTab.RECENT
                 else -> SavedTab.FAVORITES
             }
-            currentTab = Tab.SAVED
+        } else {
+            null
         }
-        intent.data = null
-        openPendingPin()
+        return DeepLink(
+            category = uri.getQueryParameter("c")?.takeIf { it.isNotBlank() },
+            pin = uri.getQueryParameter("pin")?.takeIf { it.isNotBlank() },
+            savedTab = savedTab
+        )
     }
 
     private fun openPendingPin() {

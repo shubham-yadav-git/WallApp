@@ -12,6 +12,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.gms.tasks.Task
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -26,6 +27,7 @@ import com.google.firebase.database.ValueEventListener
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Google sign-in and sync of saved data with /users/{uid}/saved, behaving exactly like the
@@ -43,13 +45,15 @@ object SavedSync {
 
     private const val TAG = "SavedSync"
     private const val WRITE_DELAY_MS = 800L
+    private const val FLUSH_TIMEOUT_MS = 5_000L
 
     private val _account = MutableStateFlow(Account())
     val account: StateFlow<Account> = _account
 
     private val handler = Handler(Looper.getMainLooper())
     private var syncingUid: String? = null
-    private var stopCurrent: (() -> Unit)? = null
+    /** Stops the current sync; returns the flushed write, if a local change was still pending. */
+    private var stopCurrent: (() -> Task<Void>?)? = null
     private var initialized = false
 
     private fun setStatus(status: Status) {
@@ -76,15 +80,17 @@ object SavedSync {
         var lastJson: String? = null
         var pending: Runnable? = null
 
-        fun write(state: SavedStore.State) {
+        fun write(state: SavedStore.State): Task<Void>? {
             val json = SavedStore.toJson(state)
-            if (json == lastJson) return
+            if (json == lastJson) return null
             lastJson = json
             setStatus(Status.SYNCING)
-            ref.setValue(mapOf("json" to json, "updatedAt" to ServerValue.TIMESTAMP))
+            return ref.setValue(mapOf("json" to json, "updatedAt" to ServerValue.TIMESTAMP))
                 .addOnSuccessListener { setStatus(Status.SYNCED) }
                 .addOnFailureListener {
                     Log.w(TAG, "Sync write failed: ${it.message}")
+                    // Forget it was sent, so the next change (or flush) tries again
+                    if (lastJson == json) lastJson = null
                     setStatus(Status.ERROR)
                 }
         }
@@ -104,7 +110,12 @@ object SavedSync {
                 }
                 if (remote != null && remote != lastJson) { // changed on another device
                     lastJson = remote
-                    SavedRepository.replace(SavedStore.parse(remote))
+                    val incoming = SavedStore.parse(remote)
+                    // A local change still waiting to be written would be lost by a plain replace:
+                    // merge instead, and the pending write then sends the combined state
+                    SavedRepository.replace(
+                        if (pending != null) SavedStore.mergeStates(SavedRepository.state.value, incoming) else incoming
+                    )
                 }
             }
 
@@ -128,19 +139,22 @@ object SavedSync {
         setStatus(Status.SYNCING)
         stopCurrent = {
             // Flush a pending local change before stopping
-            pending?.let {
+            val flush = pending?.let {
                 handler.removeCallbacks(it)
-                if (ready) write(SavedRepository.state.value)
+                pending = null
+                if (ready) write(SavedRepository.state.value) else null
             }
             ref.removeEventListener(listener)
             SavedRepository.onLocalChange = null
+            flush
         }
     }
 
-    private fun stop() {
-        stopCurrent?.invoke()
+    private fun stop(): Task<Void>? {
+        val flush = stopCurrent?.invoke()
         stopCurrent = null
         syncingUid = null
+        return flush
     }
 
     /** Outcome of [signInWithGoogle]; [Failed.detail] is the raw error, shown behind "Details". */
@@ -188,7 +202,11 @@ object SavedSync {
 
     /** Signs out and clears this device's copy (it's safe in the account). */
     suspend fun signOut(context: Context) {
-        stop()
+        // Let the flushed write land while still signed in; the rules reject it afterwards
+        stop()?.let { flush ->
+            runCatching { withTimeoutOrNull(FLUSH_TIMEOUT_MS) { flush.await() } }
+                .onFailure { if (it is CancellationException) throw it }
+        }
         FirebaseAuth.getInstance().signOut()
         runCatching { CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest()) }
         SavedRepository.replace(SavedStore.emptyState())
