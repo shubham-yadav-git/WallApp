@@ -117,4 +117,15 @@ class SavedStoreTest {
         val s = SavedStore.toggleFavorite(empty, "a/1", 1)
         assertEquals(s, SavedStore.mergeStates(s, empty))
     }
+
+    // App-only (not in the website tests): Undo after removing from a collection
+
+    @Test fun `restoreToCollection puts a key back at its old position`() {
+        var s = SavedStore.createCollection(empty, "Mix", 1, "c1")
+        listOf("a/1", "b/2", "c/3").reversed().forEach { s = SavedStore.toggleInCollection(s, "c1", it, 2) }
+        s = SavedStore.toggleInCollection(s, "c1", "b/2", 3)
+        s = SavedStore.restoreToCollection(s, "c1", "b/2", 1, 4)
+        assertEquals(listOf("a/1", "b/2", "c/3"), s.collections.single().keys)
+        assertEquals(s, SavedStore.restoreToCollection(s, "c1", "b/2", 0, 5)) // already there: unchanged
+    }
 }

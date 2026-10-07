@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import android.os.Build
+import androidx.core.content.edit
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -58,9 +59,7 @@ object WallpaperApplier {
 
     fun saveDisplayMode(context: Context, displayMode: DisplayMode) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_DISPLAY_MODE, displayMode.name)
-            .apply()
+            .edit { putString(KEY_DISPLAY_MODE, displayMode.name) }
     }
 
     private fun prepareBitmapForWallpaper(

@@ -188,6 +188,19 @@ object SavedStore {
         }
     )
 
+    /** Puts a removed key back at its old position in a collection (for Undo). App-only helper. */
+    fun restoreToCollection(state: State, id: String, key: String, index: Int, now: Long) = state.copy(
+        collections = state.collections.map { c ->
+            if (c.id != id || key in c.keys) {
+                c
+            } else {
+                val keys = c.keys.toMutableList()
+                keys.add(index.coerceIn(0, keys.size), key)
+                c.copy(keys = keys, updatedAt = now)
+            }
+        }
+    )
+
     // ── Sync ────────────────────────────────────────────────────────────────────
 
     private fun unionByKey(a: List<Entry>, b: List<Entry>): List<Entry> {

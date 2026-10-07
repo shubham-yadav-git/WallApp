@@ -10,6 +10,10 @@ suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { cont ->
     addOnCompleteListener { task ->
         if (!cont.isActive) return@addOnCompleteListener
         val error = task.exception
-        if (error != null) cont.resumeWithException(error) else cont.resume(task.result)
+        when {
+            error != null -> cont.resumeWithException(error)
+            task.isCanceled -> cont.cancel()
+            else -> cont.resume(task.result)
+        }
     }
 }

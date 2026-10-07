@@ -176,6 +176,8 @@
     <string name="counter_format">%1$d / %2$d</string>
     <string name="downloading">Downloading…</string>
     <string name="download_failed">Couldn’t start the download.</string>
+    <string name="storage_permission_required">Storage permission is needed to save wallpapers.</string>
+    <string name="set_wallpaper_failed">Couldn’t set the wallpaper. Please try again.</string>
     <string name="wallpaper_not_found">This wallpaper is no longer available.</string>
     <string name="loading">Loading…</string>
     <string name="settings_section_appearance">Appearance</string>

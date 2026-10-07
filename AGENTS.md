@@ -141,9 +141,11 @@ Several files are **ports of website files and must stay in sync** with them:
 
 ## Setup still required (outside the code)
 
-- **Google sign-in:** add the SHA-1/SHA-256 of the debug keystore, the upload key and
-  the Play App Signing key to the `com.sky.wallapp` app in Firebase, then replace
-  `app/google-services.json`. Until then sign-in fails.
+- **Google sign-in:** `app/google-services.json` registers two Android certificates
+  (SHA-1 `5e62dc8f…` and `9be77b99…`). The local debug keystore (`5D:36:58:38:…`) is
+  **not** registered yet, so sign-in fails in debug builds; one of the upload key / Play
+  App Signing key may also be missing (compare `./gradlew signingReport` with Play
+  Console → App integrity). Add the missing SHA-1/SHA-256s in Firebase, then replace the file.
 - **App Links:** publish `docs/assetlinks.json` (with the real release SHA-256) at
   `https://wallapp.shubhamy.in/.well-known/assetlinks.json` (website `public/.well-known/`).
 

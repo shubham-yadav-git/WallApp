@@ -56,12 +56,15 @@ object AutoWallpaperManager {
         )
     }
 
-    /** Next favourite key to apply: the newest one that wasn't applied last time. */
-    fun pickNextFavoriteKey(context: Context): String? {
-        val keys = SavedRepository.state.value.favorites.map { it.key }
+    /** Next favourite key to apply: the one after the last applied, wrapping round (newest first). */
+    fun pickNextFavoriteKey(context: Context): String? =
+        nextKey(SavedRepository.state.value.favorites.map { it.key }, prefs(context).getString(KEY_LAST_KEY, null))
+
+    /** Steps through [keys] in order after [last]; starts at the first when [last] is unknown or removed. */
+    internal fun nextKey(keys: List<String>, last: String?): String? {
         if (keys.isEmpty()) return null
-        val last = prefs(context).getString(KEY_LAST_KEY, null)
-        return keys.firstOrNull { it != last } ?: keys.first()
+        val index = keys.indexOf(last)
+        return keys[(index + 1) % keys.size]
     }
 
     fun markApplied(context: Context, key: String) {
