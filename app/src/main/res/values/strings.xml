@@ -172,7 +172,10 @@
     <string name="save_to_collection">Save to a collection</string>
     <string name="open_full_size">Open full size</string>
     <string name="set_as_wallpaper">Set as wallpaper</string>
-    <string name="swipe_to_browse">Swipe to browse</string>
+    <string name="swipe_to_browse">Swipe to browse · Pull down to close</string>
+    <string name="trail_more">…</string>
+    <string name="trail_home">Close and go back</string>
+    <string name="trail_step">Back to %1$s</string>
     <string name="counter_format">%1$d / %2$d</string>
     <string name="downloading">Downloading…</string>
     <string name="download_failed">Couldn’t start the download.</string>

@@ -235,7 +235,7 @@
 
     </androidx.core.widget.NestedScrollView>
 
-    <!-- Top bar over the image: back and "3 / 120" -->
+    <!-- Top bar over the image: back, "3 / 120" and the trail -->
     <FrameLayout
         android:id="@+id/top_bar"
         android:layout_width="match_parent"
@@ -266,6 +266,19 @@
             android:textColor="@color/white"
             android:visibility="gone"
             tools:text="3 / 120"
+            tools:visibility="visible" />
+
+        <!-- Trail: home + the wallpapers opened from "More like this"; tap one to jump back -->
+        <LinearLayout
+            android:id="@+id/trail"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:layout_gravity="end|top"
+            android:background="@drawable/trail_bg"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="6dp"
+            android:visibility="gone"
             tools:visibility="visible" />
 
     </FrameLayout>

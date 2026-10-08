@@ -15,10 +15,16 @@ import android.os.Environment
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
+import android.view.VelocityTracker
 import android.view.View
+import android.view.ViewConfiguration
+import android.view.ViewGroup
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.RadioButton
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
@@ -29,6 +35,7 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
@@ -56,7 +63,8 @@ import kotlin.math.abs
 /**
  * Wallpaper close-up (website PinCloseup): contained image over a blurred copy, swipe through the
  * list it was opened from, Share / Open full size / Download / Save ▾ / Set as wallpaper, and
- * "More like this". Opening a related wallpaper pushes a step that Back returns from.
+ * "More like this". Opening a related wallpaper pushes a step that Back returns from; the trail in
+ * the top bar jumps back several steps (or closes) at once, and pulling the image down closes.
  */
 class ImageActivity : AppCompatActivity(), FeedListener {
 
@@ -77,6 +85,14 @@ class ImageActivity : AppCompatActivity(), FeedListener {
     private var largeLoadedKey: String? = null
     private var swipeCount = 0
     private var pendingDownload: Wallpaper? = null
+
+    // Pull-down-to-close drag on the image
+    private val touchSlop by lazy { ViewConfiguration.get(this).scaledTouchSlop }
+    private var velocityTracker: VelocityTracker? = null
+    private var dragStartX = 0f
+    private var dragStartY = 0f
+    private var dismissDragging = false
+    private var pastDismissPoint = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -159,6 +175,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         loadImages(image)
         renderSaveState()
         loadRelated()
+        renderTrail()
         binding.detailScroll.scrollTo(0, 0)
     }
 
@@ -214,6 +231,67 @@ class ImageActivity : AppCompatActivity(), FeedListener {
     private fun goBack() {
         val previous = history.removeLastOrNull()
         if (previous != null) show(previous) else finish()
+    }
+
+    // ── Trail (several "More like this" steps deep) ─────────────────────────────
+
+    /** Home, the first wallpaper, "…" and the latest steps; the current one is on screen, not here. */
+    private fun renderTrail() {
+        val trail = binding.trail
+        trail.removeAllViews()
+        trail.isVisible = history.size >= TRAIL_MIN_STEPS
+        if (!trail.isVisible) return
+
+        trail.addView(trailItem(overlap = false).apply {
+            setImageResource(R.drawable.ic_home_black_24dp)
+            setColorFilter(ContextCompat.getColor(this@ImageActivity, R.color.white))
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            contentDescription = getString(R.string.trail_home)
+            setOnClickListener { closeFromTrail() }
+        })
+        val steps = if (history.size <= TRAIL_MAX_THUMBS) history.indices.toList()
+        else listOf(0) + (history.size - TRAIL_MAX_THUMBS + 1 until history.size)
+        steps.forEachIndexed { n, step ->
+            if (n == 1 && step != 1) {
+                trail.addView(TextView(this).apply {
+                    setText(R.string.trail_more)
+                    setTextColor(ContextCompat.getColor(this@ImageActivity, R.color.white))
+                    setPadding(dp(6), 0, dp(2), 0)
+                })
+            }
+            val image = history[step].image
+            trail.addView(trailItem(overlap = n > 0 && !(n == 1 && step != 1)).apply {
+                setBackgroundResource(R.drawable.trail_ring)
+                setPadding(dp(2), dp(2), dp(2), dp(2))
+                contentDescription = getString(R.string.trail_step, image.displayTitle)
+                Glide.with(this@ImageActivity).load(ImageUrls.tileUrl(image, ImageUrls.GRID_WIDTH_SMALL))
+                    .override(dp(TRAIL_THUMB_DP)).circleCrop().into(this)
+                setOnClickListener { jumpBack(step) }
+            })
+        }
+    }
+
+    private fun trailItem(overlap: Boolean) = ImageView(this).apply {
+        layoutParams = LinearLayout.LayoutParams(dp(TRAIL_THUMB_DP), dp(TRAIL_THUMB_DP)).apply {
+            marginStart = if (overlap) -dp(8) else dp(2)
+        }
+        scaleType = ImageView.ScaleType.CENTER_CROP
+    }
+
+    /** Back to the wallpaper at [step] in the history, dropping everything opened after it. */
+    private fun jumpBack(step: Int) {
+        val target = history.getOrNull(step) ?: return
+        val skipped = history.size - step
+        while (history.size > step) history.removeLast()
+        performActionHaptic()
+        analyticsTracker.logEvent("detail_trail", mapOf("action" to "step", "steps" to skipped.toString()))
+        show(target)
+    }
+
+    private fun closeFromTrail() {
+        performActionHaptic()
+        analyticsTracker.logEvent("detail_trail", mapOf("action" to "home", "steps" to (history.size + 1).toString()))
+        finish()
     }
 
     // ── More like this ──────────────────────────────────────────────────────────
@@ -462,10 +540,99 @@ class ImageActivity : AppCompatActivity(), FeedListener {
             }
         })
         binding.media.setOnTouchListener { view, event ->
+            if (trackDismissDrag(view, event)) return@setOnTouchListener true
             if (event.action == MotionEvent.ACTION_UP) view.performClick()
             gestureDetector.onTouchEvent(event)
         }
     }
+
+    /**
+     * Pull the image down (with the page scrolled to the top) to close the whole close-up, however
+     * many "More like this" steps deep. Returns true while it owns the gesture.
+     */
+    private fun trackDismissDrag(view: View, event: MotionEvent): Boolean {
+        // Raw coordinates: the image itself moves while dragging
+        val raw = MotionEvent.obtain(event).apply { setLocation(event.rawX, event.rawY) }
+        velocityTracker?.addMovement(raw)
+        val dx = event.rawX - dragStartX
+        val dy = event.rawY - dragStartY
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                dragStartX = event.rawX
+                dragStartY = event.rawY
+                dismissDragging = false
+                pastDismissPoint = false
+                velocityTracker?.recycle()
+                velocityTracker = VelocityTracker.obtain().apply { addMovement(raw) }
+                // Stop the page from taking the pull; handed back below if it's a scroll up
+                if (binding.detailScroll.scrollY == 0) view.parent.requestDisallowInterceptTouchEvent(true)
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (!dismissDragging && binding.detailScroll.scrollY == 0 && dy > touchSlop && dy > abs(dx) * 1.5f) {
+                    dismissDragging = true
+                    val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
+                    gestureDetector.onTouchEvent(cancel) // no double tap / fling from this gesture
+                    cancel.recycle()
+                } else if (!dismissDragging && dy < -touchSlop && abs(dy) > abs(dx)) {
+                    view.parent.requestDisallowInterceptTouchEvent(false)
+                }
+                if (dismissDragging) dragDismiss(dy)
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (dismissDragging) {
+                dismissDragging = false
+                val velocityY = velocityTracker?.run { computeCurrentVelocity(1000); yVelocity } ?: 0f
+                val close = event.actionMasked == MotionEvent.ACTION_UP &&
+                    (dy > dp(DISMISS_DISTANCE_DP) || (velocityY > DISMISS_VELOCITY && dy > dp(DISMISS_DISTANCE_DP) / 3))
+                if (close) dismissByDrag() else settleDismissDrag()
+                raw.recycle()
+                return true
+            }
+        }
+        raw.recycle()
+        return dismissDragging
+    }
+
+    /** Image follows the finger and shrinks a little; everything around it fades. */
+    private fun dragDismiss(dy: Float) {
+        val distance = dy.coerceAtLeast(0f)
+        val progress = (distance / dp(DISMISS_DISTANCE_DP * 2)).coerceAtMost(1f)
+        binding.mediaCard.translationY = distance
+        binding.mediaCard.scaleX = 1f - progress * 0.2f
+        binding.mediaCard.scaleY = 1f - progress * 0.2f
+        dismissSurroundings().forEach { it.alpha = 1f - progress }
+
+        val past = distance > dp(DISMISS_DISTANCE_DP)
+        if (past != pastDismissPoint) {
+            pastDismissPoint = past
+            if (past) binding.root.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        }
+    }
+
+    private fun settleDismissDrag() {
+        binding.mediaCard.animate().translationY(0f).scaleX(1f).scaleY(1f).setDuration(200)
+            .setInterpolator(DecelerateInterpolator()).start()
+        dismissSurroundings().forEach { it.animate().alpha(1f).setDuration(200).start() }
+    }
+
+    private fun dismissByDrag() {
+        analyticsTracker.logEvent("detail_pull_close", mapOf("steps" to (history.size + 1).toString()))
+        binding.mediaCard.animate().translationY(binding.root.height.toFloat()).alpha(0f).setDuration(180)
+            .setInterpolator(AccelerateInterpolator())
+            .withEndAction {
+                finish()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, android.R.anim.fade_out)
+                } else {
+                    @Suppress("DEPRECATION")
+                    overridePendingTransition(0, android.R.anim.fade_out)
+                }
+            }
+            .start()
+    }
+
+    /** The top bar and everything on the page except the image. */
+    private fun dismissSurroundings(): List<View> =
+        (binding.mediaCard.parent as ViewGroup).children.filter { it !== binding.mediaCard }.toList() + binding.topBar
 
     private fun showDoubleTapHeart(added: Boolean) {
         val heart = binding.doubleTapHeart
@@ -506,6 +673,8 @@ class ImageActivity : AppCompatActivity(), FeedListener {
             show()
         }
     }
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     private fun performActionHaptic() {
         binding.root.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
@@ -572,6 +741,11 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         private const val MEDIA_HEIGHT_FRACTION = 0.72f
         private const val BACKDROP_SIZE = 64
         private const val RELATED_MAX = 60
+        private const val TRAIL_MIN_STEPS = 2
+        private const val TRAIL_MAX_THUMBS = 4
+        private const val TRAIL_THUMB_DP = 32
+        private const val DISMISS_DISTANCE_DP = 120
+        private const val DISMISS_VELOCITY = 1500f
 
         /** Opens [list] at [index]; swiping moves through the same list. */
         fun intent(context: Context, list: List<Wallpaper>, index: Int, source: String): Intent =
