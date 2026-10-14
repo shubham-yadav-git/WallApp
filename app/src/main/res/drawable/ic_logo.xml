@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- In-app WallApp mark (website src/components/Logo.js), cropped tight. The strokes follow the
+     theme's on-surface colour (dark on light, light on dark); the chevron keeps its blue gradient. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="48.7dp"
+    android:height="32dp"
+    android:viewportWidth="1320"
+    android:viewportHeight="868">
+    <group
+        android:translateX="-340"
+        android:translateY="-634">
+        <path
+            android:fillColor="@color/onSurface"
+            android:pathData="M348,642 L886,642 971.6,790.2 864.7,975.3 779.1,827 663.1,827 806.6,1075.4 702.4,1255.8Z M1652,642 L1114,642 1028.4,790.2 1135.3,975.3 1220.9,827 1336.9,827 1193.4,1075.4 1297.6,1255.8Z" />
+        <path android:pathData="M1000,841.6 L729.2,1310.6 835.2,1494.2 1000,1208.8 1164.8,1494.2 1270.8,1310.6Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="842"
+                android:endX="0"
+                android:endY="1494"
+                android:startColor="#0088FF"
+                android:endColor="#00B4FF" />
+        </aapt:attr>
+        </path>
+    </group>
+</vector>

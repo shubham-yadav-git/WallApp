@@ -1,35 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WallApp mark (website public/wallapp-icon.svg): white strokes + blue chevron, centred inside the
+     66dp adaptive-icon safe zone so round / squircle masks never clip it. Also the splash icon. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-
+    android:viewportWidth="2600"
+    android:viewportHeight="2600">
     <group
-        android:scaleX="0.5"
-        android:scaleY="0.5"
-        android:pivotX="54"
-        android:pivotY="54">
-
-        <group
-            android:translateX="14"
-            android:translateY="24">
-
-            <!-- Back Peak (Semi-transparent for depth) -->
-            <path
-                android:fillColor="#80FFFFFF"
-                android:pathData="M20,60 L45,15 L70,60 Z" />
-
-            <!-- Front Peak (Main stylized W) -->
-            <path
-                android:fillColor="#FFFFFF"
-                android:pathData="M0,60 L25,10 L45,45 L60,15 L80,60 H65 L45,25 L25,60 Z" />
-
-            <!-- The "Focus" Dot -->
-            <path
-                android:fillColor="#FFFFFF"
-                android:pathData="M65,8 A5,5 0,1,1 65,18 A5,5 0,1,1 65,8" />
-
-        </group>
+        android:translateX="300"
+        android:translateY="232">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M348,642 L886,642 971.6,790.2 864.7,975.3 779.1,827 663.1,827 806.6,1075.4 702.4,1255.8Z M1652,642 L1114,642 1028.4,790.2 1135.3,975.3 1220.9,827 1336.9,827 1193.4,1075.4 1297.6,1255.8Z" />
+        <path android:pathData="M1000,841.6 L729.2,1310.6 835.2,1494.2 1000,1208.8 1164.8,1494.2 1270.8,1310.6Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="842"
+                android:endX="0"
+                android:endY="1494"
+                android:startColor="#0088FF"
+                android:endColor="#00B4FF" />
+        </aapt:attr>
+        </path>
     </group>
-
 </vector>

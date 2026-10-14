@@ -30,7 +30,7 @@
     <color name="pinPlaceholder">#2A2A2A</color>
 
     <!-- Dark Mode Splash Background -->
-    <color name="splash_background">#1C1B1F</color>
+    <color name="splash_background">#1A1A1A</color>
 
     <!-- App Icon Colors synchronized with Splash Background -->
     <color name="ic_launcher_background">@color/splash_background</color>

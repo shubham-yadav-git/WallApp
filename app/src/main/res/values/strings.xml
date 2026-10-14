@@ -97,7 +97,6 @@
     </plurals>
 
     <!-- Website parity -->
-    <string name="brand_mark">W</string>
     <string name="sign_in">Sign in</string>
     <string name="sign_out">Sign out</string>
     <string name="continue_with_google">Continue with Google</string>

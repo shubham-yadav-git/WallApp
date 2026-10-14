@@ -16,7 +16,7 @@
         android:layout_gravity="center"
         android:layout_marginTop="250dp"
         android:contentDescription="@string/wallpaper_image_desc"
-        android:src="@drawable/wp_logo_512dp"
+        android:src="@drawable/ic_launcher_foreground"
         app:tint="@color/white" />
 
     <TextView
