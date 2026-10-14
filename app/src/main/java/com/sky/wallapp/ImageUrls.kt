@@ -46,11 +46,27 @@ object ImageUrls {
         else -> url
     }
 
-    /** Height / width when it can be known without loading the image, else null. */
+    /**
+     * Height / width of the image as displayed, when it can be known without loading it, else null.
+     * Pexels URLs carry their own crop, which differs from the original's width/height, so they come first.
+     */
     fun knownRatio(image: Wallpaper): Double? {
-        if (image.width > 0 && image.height > 0) return image.height.toDouble() / image.width
-        val url = image.mainUrl ?: return null
-        return if (isPexels(url)) pexelsRatio(url) else null
+        val url = image.mainUrl
+        val original = if (image.width > 0 && image.height > 0) image.height.toDouble() / image.width else null
+        if (isPexels(url)) return pexelsRatio(url!!) ?: original // no crop params: the original is what's shown
+        return original // Cloudinary: the original's shape
+    }
+
+    /**
+     * The image shown in its original shape instead of the standard portrait crop (Pexels only;
+     * other hosts already show the original shape). Needs the original width/height.
+     */
+    fun naturalVariant(image: Wallpaper): Wallpaper {
+        val url = image.mainUrl
+        if (!isPexels(url) || image.width <= 0 || image.height <= 0) return image
+        val w = queryParam(url!!, "w")?.toIntOrNull()?.takeIf { it > 0 } ?: 800
+        val natural = setQueryParam(url, "h", (w.toDouble() * image.height / image.width).roundToInt().toString())
+        return image.copy(image = natural, natural = true)
     }
 
     /** Feed tile URL, or null if the image has no usable source. */

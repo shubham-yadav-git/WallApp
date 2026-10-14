@@ -187,6 +187,10 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         binding.hintText.isVisible = next.list.size > 1
         binding.categoryChip.text = image.categoryName
         binding.titleText.text = image.displayTitle
+        val sizeLabel = SizeFilters.sizeLabel(image)
+        binding.originalSizeRow.isVisible = sizeLabel != null
+        binding.originalSize.text = sizeLabel?.let { getString(R.string.original_size, it) }
+        binding.badge4k.isVisible = SizeFilters.is4k(image)
 
         renderDownloadSize()
         loadImages(image)
@@ -399,7 +403,10 @@ class ImageActivity : AppCompatActivity(), FeedListener {
 
     // ── More like this ──────────────────────────────────────────────────────────
 
-    /** Up to 60 from the same category, in a stable pseudo-random order seeded by this image. */
+    /**
+     * Up to 60 from the same category, in a stable pseudo-random order seeded by this image; in
+     * their original shape when this one is (opened from the Desktop filter).
+     */
     private fun loadRelated() {
         val image = viewer?.image ?: return
         val records = WallpaperRepository.state.value.records
@@ -407,6 +414,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
             .filter { it.category == image.category && it.key != image.key }
             .sortedBy { PinUtils.hash(image.key + it.id) }
             .take(RELATED_MAX)
+            .let { related -> if (image.natural) related.map(ImageUrls::naturalVariant) else related }
         if (relatedFor == image.key && list.size == related.size) return
         relatedFor = image.key
         related = list

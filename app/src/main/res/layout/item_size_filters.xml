@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Size filters under the feed heading (website SizeFilters): what the original fits, and 4K only -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="8dp"
+    android:paddingBottom="12dp">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="38dp"
+        android:background="@drawable/size_segment_bg"
+        android:orientation="horizontal"
+        android:padding="3dp">
+
+        <TextView
+            android:id="@+id/fit_all"
+            style="@style/Widget.App.SizeSegment"
+            android:text="@string/size_filter_all" />
+
+        <TextView
+            android:id="@+id/fit_phone"
+            style="@style/Widget.App.SizeSegment"
+            android:text="@string/size_filter_phone" />
+
+        <TextView
+            android:id="@+id/fit_desktop"
+            style="@style/Widget.App.SizeSegment"
+            android:text="@string/size_filter_desktop" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/toggle_4k"
+        style="@style/Widget.App.SizeSegment"
+        android:layout_height="38dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/size_toggle_bg"
+        android:contentDescription="@string/size_filter_4k_desc"
+        android:text="@string/size_filter_4k"
+        android:textColor="@color/size_toggle_text" />
+
+</LinearLayout>

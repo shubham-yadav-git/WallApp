@@ -70,6 +70,7 @@ class MainActivity : AppCompatActivity(), FeedListener {
     private var currentTab = Tab.HOME
     private var savedTab = SavedTab.FAVORITES
     private var activeCategory = ALL
+    private var sizeFilters = SizeFilters.Filters()
     private var rawQuery = ""
     private var query = "" // debounced, trimmed, lowercase
     private val handler = Handler(Looper.getMainLooper())
@@ -87,7 +88,8 @@ class MainActivity : AppCompatActivity(), FeedListener {
     private var signingIn = false
 
     // Home feed list cache (filtering + sorting 10k+ records is only redone when inputs change)
-    private var feedInputs: Triple<List<Wallpaper>, String, String>? = null
+    private data class FeedInputs(val records: List<Wallpaper>, val category: String, val query: String, val sizes: SizeFilters.Filters)
+    private var feedInputs: FeedInputs? = null
     private var feedList: List<Wallpaper> = emptyList()
 
     // Paged pins of the current screen: revealed 30 at a time once their shapes are known
@@ -178,6 +180,10 @@ class MainActivity : AppCompatActivity(), FeedListener {
 
         savedInstanceState?.let { state ->
             activeCategory = state.getString(STATE_CATEGORY, ALL)
+            sizeFilters = SizeFilters.Filters(
+                fit = SizeFilters.Fit.entries.firstOrNull { it.name == state.getString(STATE_SIZE_FIT) } ?: SizeFilters.Fit.ALL,
+                uhd = state.getBoolean(STATE_SIZE_UHD)
+            )
             savedTab = SavedTab.entries.firstOrNull { it.name == state.getString(STATE_SAVED_TAB) } ?: SavedTab.FAVORITES
         }
         // A restored activity (or one relaunched from Recents) still carries the original link: skip it
@@ -224,6 +230,8 @@ class MainActivity : AppCompatActivity(), FeedListener {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_TAB, currentTab.name)
         outState.putString(STATE_CATEGORY, activeCategory)
+        outState.putString(STATE_SIZE_FIT, sizeFilters.fit.name)
+        outState.putBoolean(STATE_SIZE_UHD, sizeFilters.uhd)
         outState.putString(STATE_SAVED_TAB, savedTab.name)
         super.onSaveInstanceState(outState)
     }
@@ -455,18 +463,22 @@ class MainActivity : AppCompatActivity(), FeedListener {
         else -> activeCategory in repo.loadedCategories
     }
 
-    /** Filter + order like the website: All shuffled per session, a category newest first, Popular by score. */
+    /**
+     * Filter + order like the website: All shuffled per session, a category newest first, Popular by
+     * score; then the size filters. Desktop shows Pexels images in their original (landscape) shape.
+     */
     private fun homeFeed(): List<Wallpaper> {
-        val inputs = Triple(repo.records, activeCategory, query)
+        val inputs = FeedInputs(repo.records, activeCategory, query, sizeFilters)
         val cached = feedInputs
-        if (cached != null && cached.first === inputs.first && cached.second == inputs.second && cached.third == inputs.third) {
+        if (cached != null && cached.records === inputs.records && cached == inputs) {
             return feedList
         }
         val matches = repo.records.filter { image ->
             if (activeCategory != ALL && activeCategory != POPULAR && image.category != activeCategory) return@filter false
+            if (sizeFilters.active && !SizeFilters.matches(image, sizeFilters)) return@filter false
             query.isEmpty() ||
                 "${image.title.orEmpty()} ${image.search.orEmpty()} ${image.categoryName}".lowercase().contains(query)
-        }
+        }.let { list -> if (sizeFilters.fit == SizeFilters.Fit.DESKTOP) list.map(ImageUrls::naturalVariant) else list }
         // Shuffle keys computed once per image, not once per comparison
         fun shuffleKeys() = matches.associateWith { PinUtils.hash(PinUtils.SEED + it.key) }
         feedList = when (activeCategory) {
@@ -504,20 +516,28 @@ class MainActivity : AppCompatActivity(), FeedListener {
             null
         }
         add(FeedRow.Heading(title, count))
+        add(FeedRow.SizeFilterBar(sizeFilters))
 
         if (!ready) {
             add(FeedRow.Loading)
             return@buildList
         }
         if (feed.isEmpty()) {
-            val message = if (query.isNotEmpty()) getString(R.string.no_wallpapers_found_for, rawQuery.trim())
-            else getString(R.string.no_wallpapers_found)
-            val action = if (query.isNotEmpty() || activeCategory != ALL) getString(R.string.show_all_wallpapers) else null
-            add(FeedRow.Empty(null, message, action, ACTION_SHOW_ALL))
+            val message = when {
+                query.isNotEmpty() -> getString(R.string.no_wallpapers_found_for, rawQuery.trim())
+                sizeFilters.active -> getString(R.string.no_wallpapers_match_filters)
+                else -> getString(R.string.no_wallpapers_found)
+            }
+            val action = when {
+                sizeFilters.active -> getString(R.string.clear_size_filters) to ACTION_CLEAR_SIZE_FILTERS
+                query.isNotEmpty() || activeCategory != ALL -> getString(R.string.show_all_wallpapers) to ACTION_SHOW_ALL
+                else -> null
+            }
+            add(FeedRow.Empty(null, message, action?.first, action?.second ?: ACTION_SHOW_ALL))
             return@buildList
         }
 
-        addPins(feed, "home|$activeCategory|$query", withAds = true)
+        addPins(feed, "home|$activeCategory|$query|${sizeFilters.fit}|${sizeFilters.uhd}", withAds = true)
     }
 
     private fun savedRows(): List<FeedRow> = buildList {
@@ -633,7 +653,17 @@ class MainActivity : AppCompatActivity(), FeedListener {
         if (actionId == ACTION_CLEAR_HISTORY) clearRecent()
     }
 
+    override fun onSizeFilters(filters: SizeFilters.Filters) {
+        sizeFilters = filters
+        analyticsTracker.logEvent("filter_size", mapOf("fit" to filters.fit.id, "uhd" to filters.uhd.toString()))
+        render(scrollToTop = true)
+    }
+
     override fun onEmptyAction(actionId: Int) {
+        if (actionId == ACTION_CLEAR_SIZE_FILTERS) {
+            onSizeFilters(SizeFilters.Filters())
+            return
+        }
         binding.searchInput.setText("")
         handler.removeCallbacks(applyQuery)
         rawQuery = ""
@@ -1082,6 +1112,7 @@ class MainActivity : AppCompatActivity(), FeedListener {
         private const val ACTION_SHOW_ALL = 1
         private const val ACTION_BROWSE = 2
         private const val ACTION_CLEAR_HISTORY = 3
+        private const val ACTION_CLEAR_SIZE_FILTERS = 4
         private const val PREFS_NAME = "wallapp_prefs"
         private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
         private const val UPDATE_CHECK_COOLDOWN_MS = 2L * 24 * 60 * 60 * 1000 // 2 days
@@ -1089,5 +1120,7 @@ class MainActivity : AppCompatActivity(), FeedListener {
         private const val STATE_TAB = "state_tab"
         private const val STATE_CATEGORY = "state_category"
         private const val STATE_SAVED_TAB = "state_saved_tab"
+        private const val STATE_SIZE_FIT = "state_size_fit"
+        private const val STATE_SIZE_UHD = "state_size_uhd"
     }
 }

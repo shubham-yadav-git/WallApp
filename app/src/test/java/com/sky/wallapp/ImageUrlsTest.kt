@@ -100,4 +100,20 @@ class ImageUrlsTest {
         assertEquals("96", ImageUrls.queryParam(pexelsAmbient, "w"))
         assertEquals("144", ImageUrls.queryParam(pexelsAmbient, "h"))
     }
+
+    @Test fun `keeps the displayed Pexels crop ratio even when the original size is known`() {
+        val image = wallpaper(image = "https://images.pexels.com/photos/1/p.jpeg?auto=compress&fit=crop&h=1200&w=800").copy(width = 6000, height = 4000)
+        assertEquals(1.5, ImageUrls.knownRatio(image)!!, 0.001)
+        assertEquals(0.5, ImageUrls.knownRatio(wallpaper(cloudinaryUrl = cloudinary).copy(width = 1000, height = 500))!!, 0.001)
+    }
+
+    @Test fun `naturalVariant re-crops Pexels to the original shape and marks it`() {
+        val image = wallpaper(image = "https://images.pexels.com/photos/1/p.jpeg?auto=compress&fit=crop&h=1200&w=800").copy(width = 6000, height = 4000)
+        val natural = ImageUrls.naturalVariant(image)
+        assertTrue(natural.natural)
+        assertEquals(4000.0 / 6000, ImageUrls.knownRatio(natural)!!, 0.01)
+        assertEquals("nature/abc#natural", natural.layoutKey)
+        val unknownSize = wallpaper(image = pexels)
+        assertEquals(unknownSize, ImageUrls.naturalVariant(unknownSize)) // size unknown: unchanged
+    }
 }

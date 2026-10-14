@@ -22,13 +22,13 @@ object RatioCache {
     private val ratios = ConcurrentHashMap<String, Double>()
 
     fun ratioOf(image: Wallpaper): Double =
-        ratios[image.key] ?: ImageUrls.knownRatio(image)?.also { ratios[image.key] = it } ?: FALLBACK_RATIO
+        ratios[image.layoutKey] ?: ImageUrls.knownRatio(image)?.also { ratios[image.layoutKey] = it } ?: FALLBACK_RATIO
 
     /** Measures every image in [images] whose ratio isn't known yet. */
     suspend fun measure(context: Context, images: List<Wallpaper>) = coroutineScope {
         val appContext = context.applicationContext
         images
-            .filter { !ratios.containsKey(it.key) && ImageUrls.knownRatio(it) == null }
+            .filter { !ratios.containsKey(it.layoutKey) && ImageUrls.knownRatio(it) == null }
             .map { image ->
                 async(Dispatchers.IO) {
                     val url = ImageUrls.tileUrl(image) ?: return@async
@@ -37,11 +37,11 @@ object RatioCache {
                     runCatching {
                         val drawable = future.get(MEASURE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                         if (drawable.intrinsicWidth > 0 && drawable.intrinsicHeight > 0) {
-                            ratios[image.key] = drawable.intrinsicHeight.toDouble() / drawable.intrinsicWidth
+                            ratios[image.layoutKey] = drawable.intrinsicHeight.toDouble() / drawable.intrinsicWidth
                         }
                     }.onFailure {
                         // Slow or broken: lock in the fallback so the tile never changes shape later
-                        ratios[image.key] = FALLBACK_RATIO
+                        ratios[image.layoutKey] = FALLBACK_RATIO
                         Glide.with(appContext).clear(future)
                     }
                 }
@@ -50,5 +50,5 @@ object RatioCache {
     }
 
     /** True once [image]'s ratio is known (measured or from its URL). */
-    fun isKnown(image: Wallpaper) = ratios.containsKey(image.key) || ImageUrls.knownRatio(image) != null
+    fun isKnown(image: Wallpaper) = ratios.containsKey(image.layoutKey) || ImageUrls.knownRatio(image) != null
 }

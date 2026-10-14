@@ -220,4 +220,14 @@
     <string name="size_original">Original</string>
     <string name="size_original_detail">Full size, uncropped</string>
     <string name="size_detail">%1$d × %2$d</string>
+
+    <!-- Size filters (website SizeFilters) -->
+    <string name="size_filter_all">All sizes</string>
+    <string name="size_filter_phone">Phone</string>
+    <string name="size_filter_desktop">Desktop</string>
+    <string name="size_filter_4k">4K</string>
+    <string name="size_filter_4k_desc">Only wallpapers 3840 px or larger</string>
+    <string name="clear_size_filters">Clear size filters</string>
+    <string name="no_wallpapers_match_filters">No wallpapers match these size filters.</string>
+    <string name="original_size">Original %1$s</string>
 </resources>
