@@ -88,7 +88,7 @@
     <!-- Refined Splash Screen Theme -->
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/wp_logo_512dp</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="windowSplashScreenIconBackgroundColor">@color/splash_background</item>
         <item name="postSplashScreenTheme">@style/AppTheme</item>
     </style>
@@ -236,4 +236,16 @@
         <item name="iconSize">26dp</item>
     </style>
 
+    <!-- One option of the feed's size filters -->
+    <style name="Widget.App.SizeSegment" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:background">@drawable/size_segment_item_bg</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:textColor">@color/onSurface</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
 </resources>

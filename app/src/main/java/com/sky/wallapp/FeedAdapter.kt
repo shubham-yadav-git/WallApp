@@ -21,6 +21,7 @@ import com.google.android.material.chip.ChipGroup
 /** One row of a masonry screen. Pins, ads and collection cards take one column; the rest span. */
 sealed class FeedRow(val id: String) {
     data class Heading(val title: String, val count: String?) : FeedRow("heading")
+    data class SizeFilterBar(val filters: SizeFilters.Filters) : FeedRow("size-filters")
     data class Recent(val items: List<Wallpaper>, val showSeeAll: Boolean) : FeedRow("recent")
     data class Empty(
         val title: String?,
@@ -53,6 +54,7 @@ interface FeedListener {
     fun onSignIn() {}
     fun onSavedTab(tab: SavedTab) {}
     fun onCollectionClick(collection: SavedStore.Collection) {}
+    fun onSizeFilters(filters: SizeFilters.Filters) {}
 }
 
 class FeedAdapter(private val listener: FeedListener) : ListAdapter<FeedRow, RecyclerView.ViewHolder>(DIFF) {
@@ -62,6 +64,7 @@ class FeedAdapter(private val listener: FeedListener) : ListAdapter<FeedRow, Rec
 
     override fun getItemViewType(position: Int): Int = when (getItem(position)) {
         is FeedRow.Heading -> TYPE_HEADING
+        is FeedRow.SizeFilterBar -> TYPE_SIZE_FILTERS
         is FeedRow.Recent -> TYPE_RECENT
         is FeedRow.Empty -> TYPE_EMPTY
         FeedRow.Loading -> TYPE_LOADING
@@ -81,6 +84,7 @@ class FeedAdapter(private val listener: FeedListener) : ListAdapter<FeedRow, Rec
             TYPE_AD -> FeedAds.PinHolder.inflate(parent)
             TYPE_COLLECTION -> CollectionHolder(inflate(R.layout.item_collection_card))
             TYPE_HEADING -> HeadingHolder(inflate(R.layout.item_feed_heading))
+            TYPE_SIZE_FILTERS -> SizeFiltersHolder(inflate(R.layout.item_size_filters))
             TYPE_RECENT -> RecentHolder(inflate(R.layout.item_recent_strip))
             TYPE_EMPTY -> EmptyHolder(inflate(R.layout.item_feed_empty))
             TYPE_SYNC -> SyncHolder(inflate(R.layout.item_sync_banner))
@@ -106,6 +110,7 @@ class FeedAdapter(private val listener: FeedListener) : ListAdapter<FeedRow, Rec
             is FeedRow.Ad -> (holder as FeedAds.PinHolder).bind(row.ad)
             is FeedRow.CollectionCard -> (holder as CollectionHolder).bind(row)
             is FeedRow.Heading -> (holder as HeadingHolder).bind(row)
+            is FeedRow.SizeFilterBar -> (holder as SizeFiltersHolder).bind(row)
             is FeedRow.Recent -> (holder as RecentHolder).bind(row)
             is FeedRow.Empty -> (holder as EmptyHolder).bind(row)
             is FeedRow.SyncBanner -> (holder as SyncHolder).bind(row)
@@ -124,6 +129,25 @@ class FeedAdapter(private val listener: FeedListener) : ListAdapter<FeedRow, Rec
             title.text = row.title
             count.text = row.count
             count.isVisible = row.count != null
+        }
+    }
+
+    private inner class SizeFiltersHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val fits = mapOf(
+            SizeFilters.Fit.ALL to view.findViewById<TextView>(R.id.fit_all),
+            SizeFilters.Fit.PHONE to view.findViewById(R.id.fit_phone),
+            SizeFilters.Fit.DESKTOP to view.findViewById(R.id.fit_desktop)
+        )
+        private val uhd: TextView = view.findViewById(R.id.toggle_4k)
+
+        fun bind(row: FeedRow.SizeFilterBar) {
+            val filters = row.filters
+            fits.forEach { (fit, button) ->
+                button.isSelected = fit == filters.fit
+                button.setOnClickListener { if (fit != filters.fit) listener.onSizeFilters(filters.copy(fit = fit)) }
+            }
+            uhd.isSelected = filters.uhd
+            uhd.setOnClickListener { listener.onSizeFilters(filters.copy(uhd = !filters.uhd)) }
         }
     }
 
@@ -288,6 +312,7 @@ class FeedAdapter(private val listener: FeedListener) : ListAdapter<FeedRow, Rec
         private const val TYPE_SYNC = 7
         private const val TYPE_TABS = 8
         private const val TYPE_SUB = 9
+        private const val TYPE_SIZE_FILTERS = 10
 
         private val DIFF = object : DiffUtil.ItemCallback<FeedRow>() {
             override fun areItemsTheSame(oldItem: FeedRow, newItem: FeedRow) = oldItem.id == newItem.id

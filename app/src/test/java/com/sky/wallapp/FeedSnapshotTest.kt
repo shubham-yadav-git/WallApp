@@ -44,4 +44,15 @@ class FeedSnapshotTest {
         assertNull(FeedSnapshot.parse("""{"v":2,"items":{}}"""))
         assertNull(FeedSnapshot.parse("<html>"))
     }
+
+    @Test fun `reads original sizes by position, 0 meaning unknown`() {
+        val feed = FeedSnapshot.parse("""
+            {"v":1,"items":{"nature":[["-A1","Lake","c:a.jpg"],["","Broken","c:b.jpg"],["-A3","Hill","p:1/x.jpg?h=1200&w=800"]]},
+             "sizes":{"nature":[[6000,4000],[1,1],0]}}
+        """.trimIndent())!!
+        val (lake, hill) = feed.items.getValue("nature")
+        assertEquals(6000 to 4000, lake.width to lake.height)
+        assertEquals(0 to 0, hill.width to hill.height) // the skipped row doesn't shift the sizes
+        assertEquals(6000, FeedSnapshot.toWallpaper(lake, "nature", "Nature", 0).width)
+    }
 }

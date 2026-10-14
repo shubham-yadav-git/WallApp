@@ -5,13 +5,14 @@ import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
-import android.graphics.RenderEffect
-import android.graphics.Shader
+import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.Settings
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -32,6 +33,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -56,13 +58,15 @@ import com.google.android.play.core.review.ReviewManagerFactory
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.sky.wallapp.databinding.ActivityImageBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
 /**
- * Wallpaper close-up (website PinCloseup): contained image over a blurred copy, swipe through the
- * list it was opened from, Share / Open full size / Download / Save ▾ / Set as wallpaper, and
+ * Wallpaper close-up (website PinCloseup): the wallpaper blurred behind a glass info panel, the
+ * contained image over a blurred copy, swipe through the list it was opened from, Share / Open full size / Download / Save ▾ / Set as wallpaper, and
  * "More like this". Opening a related wallpaper pushes a step that Back returns from; the trail in
  * the top bar jumps back several steps (or closes) at once, and pulling the image down closes.
  */
@@ -84,7 +88,21 @@ class ImageActivity : AppCompatActivity(), FeedListener {
     private var related: List<Wallpaper> = emptyList()
     private var largeLoadedKey: String? = null
     private var swipeCount = 0
-    private var pendingDownload: Wallpaper? = null
+    private var pendingDownload: Pair<Wallpaper, DownloadSizes.Option>? = null
+
+    // Ambient background: the front layer, and a newer image waiting for the running crossfade
+    private lateinit var ambientBlur: AmbientBlur
+    private var ambientKey: String? = null
+    private var ambientJob: Job? = null
+    private var ambientFront: ImageView? = null
+    private var ambientFading = false
+    private var ambientPending: Bitmap? = null
+    private val relatedRunnable = Runnable { loadRelated() }
+
+    /** System animations off ("Remove animations"): no crossfade, solid surfaces instead of glass. */
+    private val reduceEffects by lazy {
+        Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
 
     // Pull-down-to-close drag on the image
     private val touchSlop by lazy { ViewConfiguration.get(this).scaledTouchSlop }
@@ -107,9 +125,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         binding.media.updateLayoutParams {
             height = (resources.displayMetrics.heightPixels * MEDIA_HEIGHT_FRACTION).toInt()
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            binding.backdrop.setRenderEffect(RenderEffect.createBlurEffect(48f, 48f, Shader.TileMode.CLAMP))
-        }
+        setupGlass()
         relatedAdapter = FeedAdapter(this)
         binding.moreRecycler.layoutManager = FeedAdapter.newLayoutManager(this, insideScrollView = true)
         binding.moreRecycler.adapter = relatedAdapter
@@ -171,12 +187,103 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         binding.hintText.isVisible = next.list.size > 1
         binding.categoryChip.text = image.categoryName
         binding.titleText.text = image.displayTitle
+        val sizeLabel = SizeFilters.sizeLabel(image)
+        binding.originalSizeRow.isVisible = sizeLabel != null
+        binding.originalSize.text = sizeLabel?.let { getString(R.string.original_size, it) }
+        binding.badge4k.isVisible = SizeFilters.is4k(image)
 
+        renderDownloadSize()
         loadImages(image)
+        loadAmbient(image)
+        preloadNeighbours(next)
         renderSaveState()
-        loadRelated()
         renderTrail()
         binding.detailScroll.scrollTo(0, 0)
+        // "More like this" changes a frame after the new image is on screen, never in the same one
+        binding.moreRecycler.removeCallbacks(relatedRunnable)
+        binding.moreRecycler.postOnAnimation(relatedRunnable)
+    }
+
+    // ── Glass (ambient background, translucent panel and top bar) ───────────────
+
+    private fun setupGlass() {
+        val page = ContextCompat.getColor(this, R.color.background)
+        ambientBlur = AmbientBlur(page, ResourcesCompat.getFloat(resources, R.dimen.ambient_opacity))
+        if (!reduceEffects) return
+        binding.ambient.isVisible = false
+        binding.infoPanel.setBackgroundResource(R.drawable.solid_panel)
+        val solid = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.surface))
+        listOf(binding.btnBack, binding.counter, binding.trail).forEach { ViewCompat.setBackgroundTintList(it, solid) }
+    }
+
+    /** Fetches the blurred copy of [image] off the main thread, then crossfades it in. */
+    private fun loadAmbient(image: Wallpaper) {
+        if (reduceEffects || image.key == ambientKey) return
+        val url = ImageUrls.ambientUrl(image) ?: return
+        val key = image.key
+        ambientKey = key
+        ambientJob?.cancel()
+        ambientJob = lifecycleScope.launch {
+            val bitmap = withContext(Dispatchers.IO) { fetchAmbient(url) } ?: return@launch
+            if (ambientKey == key) crossfadeAmbient(bitmap)
+        }
+    }
+
+    /** A private copy of the (tiny) bitmap, so Glide can recycle its own while this one is shown. */
+    private fun fetchAmbient(url: String): Bitmap? {
+        val glide = Glide.with(applicationContext)
+        val future = glide.asBitmap().load(url).transform(ambientBlur).submit()
+        return try {
+            future.get(AMBIENT_TIMEOUT_MS, TimeUnit.MILLISECONDS).copy(Bitmap.Config.ARGB_8888, false)
+        } catch (_: Exception) {
+            null
+        } finally {
+            glide.clear(future)
+        }
+    }
+
+    /**
+     * Fades the new layer in over the old one (both opaque, so the page colour never shows through),
+     * then hides the old one. A newer image arriving mid-fade waits for the fade to finish.
+     */
+    private fun crossfadeAmbient(bitmap: Bitmap) {
+        if (ambientFading) {
+            ambientPending = bitmap
+            return
+        }
+        val outgoing = ambientFront
+        val incoming = if (outgoing === binding.ambientA) binding.ambientB else binding.ambientA
+        incoming.setImageBitmap(bitmap)
+        incoming.alpha = 0f
+        incoming.bringToFront()
+        ambientFront = incoming
+        ambientFading = true
+        incoming.animate().alpha(1f).setDuration(AMBIENT_FADE_MS).withEndAction {
+            outgoing?.alpha = 0f // fully covered: stop drawing it
+            ambientFading = false
+            ambientPending?.let {
+                ambientPending = null
+                crossfadeAmbient(it)
+            }
+        }.start()
+    }
+
+    /** Warms the previous / next wallpaper (large image + ambient) so a swipe lands on a ready image. */
+    private fun preloadNeighbours(current: Viewer) {
+        val size = current.list.size
+        if (size < 2) return
+        val width = binding.imageView.width
+        val height = binding.imageView.height
+        setOf((current.index + 1) % size, (current.index - 1 + size) % size).forEach { i ->
+            val image = current.list[i]
+            ImageUrls.largeUrl(image)?.let { url ->
+                val request = Glide.with(this).load(url).optionalFitCenter()
+                if (width > 0 && height > 0) request.preload(width, height) else request.preload()
+            }
+            if (!reduceEffects) {
+                ImageUrls.ambientUrl(image)?.let { Glide.with(this).asBitmap().load(it).transform(ambientBlur).preload() }
+            }
+        }
     }
 
     /**
@@ -193,7 +300,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         binding.imageView.contentDescription = image.displayTitle
 
         ViewHolder.loadWithFallbacks(binding.preview, image, tile)
-        Glide.with(this).load(tile).override(BACKDROP_SIZE).centerCrop().into(binding.backdrop)
+        Glide.with(this).load(ImageUrls.ambientUrl(image)).transform(backdropBlur).into(binding.backdrop)
 
         val key = image.key
         Glide.with(this)
@@ -244,7 +351,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
 
         trail.addView(trailItem(overlap = false).apply {
             setImageResource(R.drawable.ic_home_black_24dp)
-            setColorFilter(ContextCompat.getColor(this@ImageActivity, R.color.white))
+            setColorFilter(ContextCompat.getColor(this@ImageActivity, R.color.onSurface))
             setPadding(dp(4), dp(4), dp(4), dp(4))
             contentDescription = getString(R.string.trail_home)
             setOnClickListener { closeFromTrail() }
@@ -255,7 +362,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
             if (n == 1 && step != 1) {
                 trail.addView(TextView(this).apply {
                     setText(R.string.trail_more)
-                    setTextColor(ContextCompat.getColor(this@ImageActivity, R.color.white))
+                    setTextColor(ContextCompat.getColor(this@ImageActivity, R.color.onSurface))
                     setPadding(dp(6), 0, dp(2), 0)
                 })
             }
@@ -296,7 +403,10 @@ class ImageActivity : AppCompatActivity(), FeedListener {
 
     // ── More like this ──────────────────────────────────────────────────────────
 
-    /** Up to 60 from the same category, in a stable pseudo-random order seeded by this image. */
+    /**
+     * Up to 60 from the same category, in a stable pseudo-random order seeded by this image; in
+     * their original shape when this one is (opened from the Desktop filter).
+     */
     private fun loadRelated() {
         val image = viewer?.image ?: return
         val records = WallpaperRepository.state.value.records
@@ -304,6 +414,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
             .filter { it.category == image.category && it.key != image.key }
             .sortedBy { PinUtils.hash(image.key + it.id) }
             .take(RELATED_MAX)
+            .let { related -> if (image.natural) related.map(ImageUrls::naturalVariant) else related }
         if (relatedFor == image.key && list.size == related.size) return
         relatedFor = image.key
         related = list
@@ -347,7 +458,17 @@ class ImageActivity : AppCompatActivity(), FeedListener {
             val url = viewer?.image?.let(ImageUrls::originalUrl) ?: return@setOnClickListener
             runCatching { startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
         }
-        binding.btnSave.setOnClickListener { viewer?.image?.let(::requestDownload) }
+        binding.btnSave.setOnClickListener {
+            val image = viewer?.image ?: return@setOnClickListener
+            requestDownload(image, DownloadSizes.preferred(this, DownloadSizes.options(this, image)))
+        }
+        binding.btnDownloadMore.setOnClickListener {
+            val image = viewer?.image ?: return@setOnClickListener
+            DownloadSheet.show(this, image) { option ->
+                renderDownloadSize()
+                requestDownload(image, option)
+            }
+        }
         binding.btnFavorite.setOnClickListener { viewer?.image?.let(::toggleSave) }
         binding.btnSaveMore.setOnClickListener {
             val image = viewer?.image ?: return@setOnClickListener
@@ -395,36 +516,43 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, image.displayTitle)
-            putExtra(Intent.EXTRA_TEXT, PinUtils.webUrl(image))
+            putExtra(Intent.EXTRA_TEXT, PinPaths.webUrl(image))
         }
         startActivity(Intent.createChooser(intent, getString(R.string.share_via)))
     }
 
-    private fun requestDownload(image: Wallpaper) {
+    /** The remembered download size of the current image, under "Download". */
+    private fun renderDownloadSize() {
+        val image = viewer?.image ?: return
+        binding.downloadSizeLabel.setText(DownloadSizes.preferred(this, DownloadSizes.options(this, image)).label)
+    }
+
+    private fun requestDownload(image: Wallpaper, size: DownloadSizes.Option) {
         val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
         if (needsPermission) {
-            pendingDownload = image
+            pendingDownload = image to size
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), WRITE_EXTERNAL_STORAGE_CODE)
         } else {
-            download(image)
+            download(image, size)
         }
     }
 
-    /** Downloads the full-size file with the system DownloadManager into Pictures/WallApp. */
-    private fun download(image: Wallpaper) {
-        val url = ImageUrls.downloadUrl(image) ?: return
+    /** Downloads the file at [size] (cropped to fill it, or the original) into Pictures/WallApp. */
+    private fun download(image: Wallpaper, size: DownloadSizes.Option) {
+        val url = DownloadSizes.url(image, size) ?: return
+        val name = if (size.isOriginal) "wallapp-${image.id}.jpg" else "wallapp-${image.id}-${size.width}x${size.height}.jpg"
         try {
             val request = DownloadManager.Request(url.toUri())
                 .setTitle(image.displayTitle)
                 .setMimeType("image/jpeg")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_PICTURES, "WallApp/wallapp-${image.id}.jpg")
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_PICTURES, "WallApp/$name")
             @Suppress("DEPRECATION")
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) request.allowScanningByMediaScanner()
             (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
 
-            analyticsTracker.logEvent("file_download", mapOf("item_id" to image.key))
+            analyticsTracker.logEvent("file_download", mapOf("item_id" to image.key, "size" to size.id))
             PopularityStats.recordDownload(this, image)
             snackbar(getString(R.string.downloading))
             onPositiveAction()
@@ -436,10 +564,10 @@ class ImageActivity : AppCompatActivity(), FeedListener {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != WRITE_EXTERNAL_STORAGE_CODE) return
-        val image = pendingDownload
+        val pending = pendingDownload
         pendingDownload = null
-        if (image != null && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            download(image)
+        if (pending != null && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            download(pending.first, pending.second)
         } else {
             Toast.makeText(this, R.string.storage_permission_required, Toast.LENGTH_LONG).show()
         }
@@ -482,7 +610,11 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         dialog.show()
     }
 
-    /** Loads a screen-sized copy of the original off the main thread, then applies it. */
+    /**
+     * Loads a screen-sized copy off the main thread, then applies it. Fixed wallpapers use the
+     * image cropped server-side to this device's screen ("This device"); scrolling ones need a
+     * wider image, so they start from the original.
+     */
     private fun applyWallpaper(
         image: Wallpaper,
         targetFlag: Int?,
@@ -490,7 +622,12 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         successMessage: String,
         displayMode: WallpaperApplier.DisplayMode
     ) {
-        val url = ImageUrls.originalUrl(image) ?: return
+        val device = DownloadSizes.deviceSize(this)
+        val url = (if (displayMode == WallpaperApplier.DisplayMode.FIXED && device != null && ImageUrls.canCrop(image)) {
+            ImageUrls.sizedDownloadUrl(image, device.width, device.height)
+        } else {
+            ImageUrls.originalUrl(image)
+        }) ?: return
         Toast.makeText(this, getString(R.string.wallpaper_setting), Toast.LENGTH_SHORT).show()
         val metrics = resources.displayMetrics
         lifecycleScope.launch {
@@ -632,7 +769,8 @@ class ImageActivity : AppCompatActivity(), FeedListener {
 
     /** The top bar and everything on the page except the image. */
     private fun dismissSurroundings(): List<View> =
-        (binding.mediaCard.parent as ViewGroup).children.filter { it !== binding.mediaCard }.toList() + binding.topBar
+        (binding.mediaCard.parent as ViewGroup).children.filter { it !== binding.mediaCard }.toList() +
+            binding.topBar + binding.ambient
 
     private fun showDoubleTapHeart(added: Boolean) {
         val heart = binding.doubleTapHeart
@@ -739,7 +877,11 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         private const val SWIPE_DISTANCE_THRESHOLD = 120
         private const val SWIPE_VELOCITY_THRESHOLD = 120
         private const val MEDIA_HEIGHT_FRACTION = 0.72f
-        private const val BACKDROP_SIZE = 64
+        private const val AMBIENT_FADE_MS = 450L
+        private const val AMBIENT_TIMEOUT_MS = 10_000L
+
+        /** Letterbox behind the contained image: the same blurred copy, darkened. */
+        private val backdropBlur = AmbientBlur(Color.BLACK, 0.55f)
         private const val RELATED_MAX = 60
         private const val TRAIL_MIN_STEPS = 2
         private const val TRAIL_MAX_THUMBS = 4

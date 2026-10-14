@@ -44,16 +44,13 @@
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <TextView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:background="@drawable/brand_mark_bg"
-                        android:gravity="center"
+                    <!-- Decorative: "WallApp" is written next to it -->
+                    <ImageView
+                        android:layout_width="wrap_content"
+                        android:layout_height="26dp"
+                        android:adjustViewBounds="true"
                         android:importantForAccessibility="no"
-                        android:text="@string/brand_mark"
-                        android:textColor="@color/white"
-                        android:textSize="17sp"
-                        android:textStyle="bold" />
+                        android:src="@drawable/ic_logo" />
 
                     <TextView
                         android:id="@+id/brand_name"

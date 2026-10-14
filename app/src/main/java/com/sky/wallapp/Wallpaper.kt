@@ -16,9 +16,14 @@ data class Wallpaper(
     val width: Int = 0,
     val height: Int = 0,
     /** Popularity: downloads + 2 × favourites (from feed.json). */
-    val score: Int = 0
+    val score: Int = 0,
+    /** Shown in its original shape instead of the standard portrait crop ([ImageUrls.naturalVariant]). */
+    val natural: Boolean = false
 ) {
     val key: String get() = "$category/$id"
+
+    /** Tile-shape cache key: the natural variant has a different shape than the cropped one. */
+    val layoutKey: String get() = if (natural) "$key#natural" else key
 
     val mainUrl: String?
         get() = cloudinaryUrl?.takeIf { it.isNotBlank() } ?: image?.takeIf { it.isNotBlank() }

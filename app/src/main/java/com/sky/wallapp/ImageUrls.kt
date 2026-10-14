@@ -12,6 +12,9 @@ object ImageUrls {
     const val GRID_WIDTH = 474
     const val GRID_WIDTH_SMALL = 236
 
+    /** Width of the blurred background copy in the close-up. */
+    const val AMBIENT_WIDTH = 96
+
     private const val PEXELS_PREFIX = "https://images.pexels.com/"
 
     private fun isCloudinary(url: String?) =
@@ -43,11 +46,27 @@ object ImageUrls {
         else -> url
     }
 
-    /** Height / width when it can be known without loading the image, else null. */
+    /**
+     * Height / width of the image as displayed, when it can be known without loading it, else null.
+     * Pexels URLs carry their own crop, which differs from the original's width/height, so they come first.
+     */
     fun knownRatio(image: Wallpaper): Double? {
-        if (image.width > 0 && image.height > 0) return image.height.toDouble() / image.width
-        val url = image.mainUrl ?: return null
-        return if (isPexels(url)) pexelsRatio(url) else null
+        val url = image.mainUrl
+        val original = if (image.width > 0 && image.height > 0) image.height.toDouble() / image.width else null
+        if (isPexels(url)) return pexelsRatio(url!!) ?: original // no crop params: the original is what's shown
+        return original // Cloudinary: the original's shape
+    }
+
+    /**
+     * The image shown in its original shape instead of the standard portrait crop (Pexels only;
+     * other hosts already show the original shape). Needs the original width/height.
+     */
+    fun naturalVariant(image: Wallpaper): Wallpaper {
+        val url = image.mainUrl
+        if (!isPexels(url) || image.width <= 0 || image.height <= 0) return image
+        val w = queryParam(url!!, "w")?.toIntOrNull()?.takeIf { it > 0 } ?: 800
+        val natural = setQueryParam(url, "h", (w.toDouble() * image.height / image.width).roundToInt().toString())
+        return image.copy(image = natural, natural = true)
     }
 
     /** Feed tile URL, or null if the image has no usable source. */
@@ -68,6 +87,12 @@ object ImageUrls {
         return sizedUrl(url, if (isPexels(url)) 1080 else 1400)
     }
 
+    /** Tiny copy (96px wide) for the close-up's blurred background; other hosts: the tile. */
+    fun ambientUrl(image: Wallpaper): String? {
+        val url = image.mainUrl ?: return null
+        return if (isCloudinary(url) || isPexels(url)) sizedUrl(url, AMBIENT_WIDTH) else tileUrl(image)
+    }
+
     /** Best-quality version (open full size, set as wallpaper). */
     fun originalUrl(image: Wallpaper): String? {
         val url = image.mainUrl ?: return null
@@ -83,6 +108,29 @@ object ImageUrls {
             else -> url
         }
     }
+
+    /**
+     * Download URL cropped to fill [w] × [h] (Cloudinary picks the subject with g_auto; Pexels crops
+     * from its original). Other hosts can't be cropped, so they fall back to [downloadUrl].
+     */
+    fun sizedDownloadUrl(image: Wallpaper, w: Int, h: Int): String? {
+        val url = image.mainUrl ?: return null
+        return when {
+            isCloudinary(url) -> transform(url, "c_fill,g_auto,w_$w,h_$h,q_auto/fl_attachment")
+            isPexels(url) -> listOf(
+                "w" to "$w", "h" to "$h", "fit" to "crop",
+                "dl" to "wallapp-${image.id.ifBlank { "wallpaper" }}-${w}x$h.jpg"
+            ).fold(url) { out, (k, v) -> setQueryParam(out, k, v) }
+            else -> downloadUrl(image)
+        }
+    }
+
+    /** True when filling [w] × [h] would upscale the original by more than 5% (unknown size: false). */
+    fun wouldUpscale(image: Wallpaper, w: Int, h: Int): Boolean =
+        image.width > 0 && image.height > 0 && maxOf(w.toDouble() / image.width, h.toDouble() / image.height) > 1.05
+
+    /** Whether [sizedDownloadUrl] can actually crop this image. */
+    fun canCrop(image: Wallpaper): Boolean = image.mainUrl.let { isCloudinary(it) || isPexels(it) }
 
     // ---- query string helpers (URLSearchParams.get / .set semantics) ----
 

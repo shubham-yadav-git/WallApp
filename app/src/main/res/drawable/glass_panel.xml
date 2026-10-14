@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Close-up info panel: translucent surface over the blurred wallpaper (no live blur) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/glassStrong" />
+    <stroke android:width="1px" android:color="@color/glassBorder" />
+    <corners
+        android:topLeftRadius="@dimen/glass_panel_radius"
+        android:topRightRadius="@dimen/glass_panel_radius"
+        android:bottomLeftRadius="@dimen/glass_panel_bottom_radius"
+        android:bottomRightRadius="@dimen/glass_panel_bottom_radius" />
+</shape>

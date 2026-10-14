@@ -1,0 +1,4 @@
+<resources>
+    <!-- Blurred wallpaper behind the close-up: a little dimmer on the dark page -->
+    <item name="ambient_opacity" format="float" type="dimen">0.45</item>
+</resources>

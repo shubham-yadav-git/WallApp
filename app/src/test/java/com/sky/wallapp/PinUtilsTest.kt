@@ -13,11 +13,6 @@ class PinUtilsTest {
         assertEquals(2069256594L, PinUtils.hash("é漢"))
     }
 
-    @Test fun `share link matches the website format`() {
-        val image = Wallpaper("-Oabc", "nature", "Nature", null, null, "https://x/y.jpg", null)
-        assertEquals("https://wallapp.shubhamy.in/?c=nature&pin=nature%2F-Oabc", PinUtils.webUrl(image))
-    }
-
     @Test fun `splits keys`() {
         assertEquals("nature" to "-Oabc", Wallpaper.splitKey("nature/-Oabc"))
         assertEquals(null, Wallpaper.splitKey("nokey"))

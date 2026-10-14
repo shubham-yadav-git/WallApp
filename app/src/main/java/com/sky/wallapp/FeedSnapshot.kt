@@ -15,7 +15,19 @@ data class FeedSnapshot(
     val items: Map<String, List<Row>>,
     val popular: Map<String, Map<String, Int>>
 ) {
-    data class Row(val id: String, val title: String, val shortUrl: String, val search: String?)
+    /**
+     * [width] / [height]: the original's size from `sizes` (0 = unknown). [index] is the row's
+     * position in the file, which is how `sizes` entries line up with it.
+     */
+    data class Row(
+        val id: String,
+        val title: String,
+        val shortUrl: String,
+        val search: String?,
+        val width: Int = 0,
+        val height: Int = 0,
+        val index: Int = 0
+    )
 
     companion object {
         private val PREFIXES = mapOf(
@@ -42,6 +54,8 @@ data class FeedSnapshot(
                 search = row.search ?: row.title,
                 image = url,
                 cloudinaryUrl = if (isCloudinary) url else null,
+                width = row.width,
+                height = row.height,
                 score = score
             )
         }
@@ -60,6 +74,7 @@ data class FeedSnapshot(
                 var categories: List<Pair<String, String>> = emptyList()
                 var items: Map<String, List<Row>>? = null
                 var popular: Map<String, Map<String, Int>> = emptyMap()
+                var sizes: Map<String, List<IntArray?>> = emptyMap()
 
                 reader.beginObject()
                 while (reader.hasNext()) {
@@ -69,11 +84,13 @@ data class FeedSnapshot(
                         "categories" -> categories = readCategories(reader)
                         "items" -> items = readItems(reader)
                         "popular" -> popular = readPopular(reader)
+                        "sizes" -> sizes = readSizes(reader)
                         else -> reader.skipValue()
                     }
                 }
                 reader.endObject()
-                if (version != 1 || items == null) null else FeedSnapshot(generatedAt, categories, items, popular)
+                if (version != 1 || items == null) null
+                else FeedSnapshot(generatedAt, categories, withSizes(items, sizes), popular)
             }
         }.getOrNull()
 
@@ -105,7 +122,8 @@ data class FeedSnapshot(
                 val path = reader.nextName()
                 val rows = ArrayList<Row>()
                 reader.beginArray()
-                while (reader.hasNext()) readRow(reader)?.let(rows::add)
+                var position = 0
+                while (reader.hasNext()) readRow(reader, position++)?.let(rows::add)
                 reader.endArray()
                 out[path] = rows
             }
@@ -114,7 +132,7 @@ data class FeedSnapshot(
         }
 
         /** [id, title, shortUrl, search?] */
-        private fun readRow(reader: JsonReader): Row? {
+        private fun readRow(reader: JsonReader, position: Int): Row? {
             val fields = arrayOfNulls<String>(4)
             var i = 0
             reader.beginArray()
@@ -126,7 +144,48 @@ data class FeedSnapshot(
             reader.endArray()
             val id = fields[0]?.takeIf { it.isNotBlank() } ?: return null
             val url = fields[2]?.takeIf { it.isNotBlank() } ?: return null
-            return Row(id, fields[1].orEmpty(), url, fields[3])
+            return Row(id, fields[1].orEmpty(), url, fields[3], index = position)
+        }
+
+        /** sizes: { [path]: [[width, height] | 0, …] } in the same order as items (0 = unknown). */
+        private fun readSizes(reader: JsonReader): Map<String, List<IntArray?>> {
+            val out = HashMap<String, List<IntArray?>>()
+            reader.beginObject()
+            while (reader.hasNext()) {
+                val path = reader.nextName()
+                val list = ArrayList<IntArray?>()
+                reader.beginArray()
+                while (reader.hasNext()) {
+                    if (reader.peek() == JsonToken.BEGIN_ARRAY) {
+                        val size = IntArray(2)
+                        var i = 0
+                        reader.beginArray()
+                        while (reader.hasNext()) {
+                            val n = if (reader.peek() == JsonToken.NUMBER) reader.nextDouble().toInt() else { reader.skipValue(); 0 }
+                            if (i < 2) size[i] = n
+                            i++
+                        }
+                        reader.endArray()
+                        list += size.takeIf { it[0] > 0 && it[1] > 0 }
+                    } else {
+                        reader.skipValue()
+                        list += null
+                    }
+                }
+                reader.endArray()
+                out[path] = list
+            }
+            reader.endObject()
+            return out
+        }
+
+        /** Adds each row's original size (matched by position, so skipped rows don't shift the rest). */
+        private fun withSizes(items: Map<String, List<Row>>, sizes: Map<String, List<IntArray?>>): Map<String, List<Row>> {
+            if (sizes.isEmpty()) return items
+            return items.mapValuesTo(LinkedHashMap()) { (path, rows) ->
+                val list = sizes[path] ?: return@mapValuesTo rows
+                rows.map { row -> list.getOrNull(row.index)?.let { row.copy(width = it[0], height = it[1]) } ?: row }
+            }
         }
 
         private fun readPopular(reader: JsonReader): Map<String, Map<String, Int>> {

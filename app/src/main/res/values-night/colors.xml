@@ -30,7 +30,7 @@
     <color name="pinPlaceholder">#2A2A2A</color>
 
     <!-- Dark Mode Splash Background -->
-    <color name="splash_background">#1C1B1F</color>
+    <color name="splash_background">#1A1A1A</color>
 
     <!-- App Icon Colors synchronized with Splash Background -->
     <color name="ic_launcher_background">@color/splash_background</color>
@@ -45,4 +45,11 @@
     <color name="softPressed">#383838</color>
     <color name="snackbarBackground">#2A2A2A</color>
     <color name="heart">#E6553A</color>
+
+    <!-- Frosted glass over the close-up's blurred wallpaper (website public.css glass tokens) -->
+    <color name="glass">#8C1C1C1E</color>
+    <color name="glassStrong">#9E1C1C1E</color>
+    <color name="glassFill">#14FFFFFF</color>
+    <color name="glassFillPressed">#24FFFFFF</color>
+    <color name="glassBorder">#14FFFFFF</color>
 </resources>
