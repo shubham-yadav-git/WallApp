@@ -64,10 +64,16 @@ object SavedSync {
         if (initialized) return
         initialized = true
         SavedRepository.init(context)
+        val appContext = context.applicationContext
         FirebaseAuth.getInstance().addAuthStateListener { auth ->
             val user = auth.currentUser
             _account.value = Account(user, known = true, status = if (user != null) _account.value.status else Status.IDLE)
-            if (user != null) start(user.uid) else stop()
+            if (user != null) {
+                Members.record(appContext, user)
+                start(user.uid)
+            } else {
+                stop()
+            }
         }
     }
 
