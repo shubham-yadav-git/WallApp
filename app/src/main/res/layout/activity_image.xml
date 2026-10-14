@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Pin close-up (website PinCloseup): contained image over a blurred copy, actions, info, More like this -->
+<!-- Pin close-up (website PinCloseup): the wallpaper blurred behind everything, the contained image,
+     a glass info panel (actions, category, title) and More like this -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -8,6 +9,32 @@
     android:layout_height="match_parent"
     android:background="@color/background"
     tools:context=".ImageActivity">
+
+    <!-- Ambient: a tiny copy of the wallpaper, blurred once (AmbientBlur) and stretched over the screen.
+         Two opaque layers so a new one crossfades over the old; static while the page scrolls. -->
+    <FrameLayout
+        android:id="@+id/ambient"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="noHideDescendants">
+
+        <ImageView
+            android:id="@+id/ambient_a"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="0"
+            android:scaleType="centerCrop"
+            tools:ignore="ContentDescription" />
+
+        <ImageView
+            android:id="@+id/ambient_b"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="0"
+            android:scaleType="centerCrop"
+            tools:ignore="ContentDescription" />
+
+    </FrameLayout>
 
     <androidx.core.widget.NestedScrollView
         android:id="@+id/detail_scroll"
@@ -42,11 +69,6 @@
                         android:importantForAccessibility="no"
                         android:scaleType="centerCrop" />
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:background="#73000000" />
-
                     <!-- Grid image, shown sharp immediately (from cache) until the large one loads -->
                     <ImageView
                         android:id="@+id/preview"
@@ -78,138 +100,156 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Actions: share, open full size | Download, Save ▾ -->
+            <!-- Glass info panel: actions, Set as wallpaper, category, title -->
             <LinearLayout
+                android:id="@+id/info_panel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="12dp"
-                android:paddingTop="12dp">
+                android:layout_marginHorizontal="8dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/glass_panel"
+                android:orientation="vertical"
+                android:paddingBottom="16dp">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_share"
-                    style="@style/Widget.App.RoundButton"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:contentDescription="@string/share"
-                    app:icon="@drawable/ic_share_white_24dp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_open"
-                    style="@style/Widget.App.RoundButton"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_marginStart="8dp"
-                    android:contentDescription="@string/open_full_size"
-                    app:icon="@drawable/ic_open_in_new_24" />
-
-                <Space
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_save"
-                    style="@style/Widget.App.Pill.Soft"
-                    android:layout_width="wrap_content"
+                <!-- Actions: share, open full size | Download, Save ▾ -->
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingStart="14dp"
-                    android:paddingEnd="16dp"
-                    android:text="@string/download"
-                    app:icon="@drawable/ic_download_24"
-                    app:iconSize="20dp" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="12dp"
+                    android:paddingTop="12dp">
 
-                <!-- Save split button: main toggles Favourites, ▾ opens "Save to…" -->
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/save_split"
-                    android:layout_width="wrap_content"
-                    android:layout_height="48dp"
-                    android:layout_marginStart="8dp"
-                    app:cardBackgroundColor="@color/primary"
-                    app:cardCornerRadius="24dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_share"
+                        style="@style/Widget.App.RoundButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:contentDescription="@string/share"
+                        app:backgroundTint="@color/glass_fill_bg"
+                        app:icon="@drawable/ic_share_white_24dp" />
 
-                    <LinearLayout
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_open"
+                        style="@style/Widget.App.RoundButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="8dp"
+                        android:contentDescription="@string/open_full_size"
+                        app:backgroundTint="@color/glass_fill_bg"
+                        app:icon="@drawable/ic_open_in_new_24" />
+
+                    <Space
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_save"
+                        style="@style/Widget.App.Pill.Soft"
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:orientation="horizontal">
+                        android:layout_height="wrap_content"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="16dp"
+                        android:text="@string/download"
+                        app:backgroundTint="@color/glass_fill_bg"
+                        app:icon="@drawable/ic_download_24"
+                        app:iconSize="20dp" />
 
-                        <TextView
-                            android:id="@+id/btn_favorite"
+                    <!-- Save split button: main toggles Favourites, ▾ opens "Save to…" -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/save_split"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="8dp"
+                        app:cardBackgroundColor="@color/primary"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="match_parent"
-                            android:background="?attr/selectableItemBackground"
-                            android:gravity="center"
-                            android:paddingStart="20dp"
-                            android:paddingEnd="12dp"
-                            android:text="@string/action_save"
-                            android:textAppearance="@style/TextAppearance.App.Chip"
-                            android:textColor="@color/white" />
+                            android:orientation="horizontal">
 
-                        <View
-                            android:id="@+id/save_divider"
-                            android:layout_width="1dp"
-                            android:layout_height="24dp"
-                            android:layout_gravity="center_vertical"
-                            android:background="#4DFFFFFF" />
+                            <TextView
+                                android:id="@+id/btn_favorite"
+                                android:layout_width="wrap_content"
+                                android:layout_height="match_parent"
+                                android:background="?attr/selectableItemBackground"
+                                android:gravity="center"
+                                android:paddingStart="20dp"
+                                android:paddingEnd="12dp"
+                                android:text="@string/action_save"
+                                android:textAppearance="@style/TextAppearance.App.Chip"
+                                android:textColor="@color/white" />
 
-                        <ImageView
-                            android:id="@+id/btn_save_more"
-                            android:layout_width="40dp"
-                            android:layout_height="match_parent"
-                            android:background="?attr/selectableItemBackground"
-                            android:contentDescription="@string/save_to_collection"
-                            android:paddingStart="6dp"
-                            android:paddingEnd="10dp"
-                            android:src="@drawable/ic_expand_more_24"
-                            app:tint="@color/white" />
+                            <View
+                                android:id="@+id/save_divider"
+                                android:layout_width="1dp"
+                                android:layout_height="24dp"
+                                android:layout_gravity="center_vertical"
+                                android:background="#4DFFFFFF" />
 
-                    </LinearLayout>
+                            <ImageView
+                                android:id="@+id/btn_save_more"
+                                android:layout_width="40dp"
+                                android:layout_height="match_parent"
+                                android:background="?attr/selectableItemBackground"
+                                android:contentDescription="@string/save_to_collection"
+                                android:paddingStart="6dp"
+                                android:paddingEnd="10dp"
+                                android:src="@drawable/ic_expand_more_24"
+                                app:tint="@color/white" />
 
-                </com.google.android.material.card.MaterialCardView>
+                        </LinearLayout>
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_wall"
+                    style="@style/Widget.App.Pill.Soft"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="12dp"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/set_as_wallpaper"
+                    app:backgroundTint="@color/glass_fill_bg"
+                    app:icon="@drawable/ic_wallpaper_white_24dp"
+                    app:iconGravity="textStart" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/category_chip"
+                    style="@style/Widget.App.CategoryChip"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="@dimen/screen_side_padding"
+                    android:layout_marginTop="16dp"
+                    android:checkable="false"
+                    app:chipBackgroundColor="@color/glass_fill_bg"
+                    tools:text="Nature" />
+
+                <TextView
+                    android:id="@+id/title_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:paddingHorizontal="@dimen/screen_side_padding"
+                    android:textAppearance="@style/TextAppearance.App.Heading"
+                    tools:text="Misty mountain lake" />
+
+                <TextView
+                    android:id="@+id/hint_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:paddingHorizontal="@dimen/screen_side_padding"
+                    android:text="@string/swipe_to_browse"
+                    android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                    android:textColor="@color/onSurfaceVariant" />
 
             </LinearLayout>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_wall"
-                style="@style/Widget.App.Pill.Soft"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="12dp"
-                android:layout_marginTop="10dp"
-                android:text="@string/set_as_wallpaper"
-                app:icon="@drawable/ic_wallpaper_white_24dp"
-                app:iconGravity="textStart" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/category_chip"
-                style="@style/Widget.App.CategoryChip"
-                android:layout_width="wrap_content"
-                android:layout_marginStart="@dimen/screen_side_padding"
-                android:layout_marginTop="16dp"
-                android:checkable="false"
-                tools:text="Nature" />
-
-            <TextView
-                android:id="@+id/title_text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:paddingHorizontal="@dimen/screen_side_padding"
-                android:textAppearance="@style/TextAppearance.App.Heading"
-                tools:text="Misty mountain lake" />
-
-            <TextView
-                android:id="@+id/hint_text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:paddingHorizontal="@dimen/screen_side_padding"
-                android:text="@string/swipe_to_browse"
-                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-                android:textColor="@color/onSurfaceVariant" />
 
             <TextView
                 android:id="@+id/more_title"
@@ -248,10 +288,10 @@
             android:id="@+id/btn_back"
             android:layout_width="44dp"
             android:layout_height="44dp"
-            android:background="@drawable/circle_scrim"
+            android:background="@drawable/glass_circle"
             android:contentDescription="@string/back"
             android:src="@drawable/ic_arrow_back_24"
-            app:tint="@color/white" />
+            app:tint="@color/onSurface" />
 
         <TextView
             android:id="@+id/counter"
@@ -259,11 +299,11 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal|top"
             android:layout_marginTop="9dp"
-            android:background="@drawable/ad_badge_bg"
+            android:background="@drawable/glass_pill"
             android:paddingHorizontal="12dp"
             android:paddingVertical="4dp"
             android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
-            android:textColor="@color/white"
+            android:textColor="@color/onSurface"
             android:visibility="gone"
             tools:text="3 / 120"
             tools:visibility="visible" />
@@ -274,7 +314,7 @@
             android:layout_width="wrap_content"
             android:layout_height="44dp"
             android:layout_gravity="end|top"
-            android:background="@drawable/trail_bg"
+            android:background="@drawable/glass_pill"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingHorizontal="6dp"

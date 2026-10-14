@@ -8,4 +8,9 @@
     <dimen name="screen_side_padding">16dp</dimen>
     <dimen name="settings_row_height">56dp</dimen>
     <dimen name="detail_corner_radius">28dp</dimen>
+
+    <!-- Close-up glass: blurred wallpaper opacity (light page), info panel corners (24dp at the bottom on phones) -->
+    <item name="ambient_opacity" format="float" type="dimen">0.55</item>
+    <dimen name="glass_panel_radius">32dp</dimen>
+    <dimen name="glass_panel_bottom_radius">24dp</dimen>
 </resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Glass pill in the close-up's top bar ("3 / 120" counter, trail) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/glass" />
+    <stroke android:width="1px" android:color="@color/glassBorder" />
+    <corners android:radius="22dp" />
+</shape>

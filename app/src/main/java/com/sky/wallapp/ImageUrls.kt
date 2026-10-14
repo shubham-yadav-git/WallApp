@@ -12,6 +12,9 @@ object ImageUrls {
     const val GRID_WIDTH = 474
     const val GRID_WIDTH_SMALL = 236
 
+    /** Width of the blurred background copy in the close-up. */
+    const val AMBIENT_WIDTH = 96
+
     private const val PEXELS_PREFIX = "https://images.pexels.com/"
 
     private fun isCloudinary(url: String?) =
@@ -66,6 +69,12 @@ object ImageUrls {
     fun largeUrl(image: Wallpaper): String? {
         val url = image.mainUrl ?: return null
         return sizedUrl(url, if (isPexels(url)) 1080 else 1400)
+    }
+
+    /** Tiny copy (96px wide) for the close-up's blurred background; other hosts: the tile. */
+    fun ambientUrl(image: Wallpaper): String? {
+        val url = image.mainUrl ?: return null
+        return if (isCloudinary(url) || isPexels(url)) sizedUrl(url, AMBIENT_WIDTH) else tileUrl(image)
     }
 
     /** Best-quality version (open full size, set as wallpaper). */

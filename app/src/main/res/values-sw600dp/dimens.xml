@@ -1,0 +1,4 @@
+<resources>
+    <!-- Tablets: the close-up panel has the same radius on every corner -->
+    <dimen name="glass_panel_bottom_radius">32dp</dimen>
+</resources>

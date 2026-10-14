@@ -48,4 +48,11 @@
     <color name="softPressed">#E2E2E2</color>
     <color name="snackbarBackground">#111111</color>
     <color name="heart">#E6553A</color>
+
+    <!-- Frosted glass over the close-up's blurred wallpaper (website public.css glass tokens) -->
+    <color name="glass">#99FFFFFF</color>
+    <color name="glassStrong">#BDFFFFFF</color>
+    <color name="glassFill">#0F000000</color>
+    <color name="glassFillPressed">#1A000000</color>
+    <color name="glassBorder">#99FFFFFF</color>
 </resources>
