@@ -88,7 +88,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
     private var related: List<Wallpaper> = emptyList()
     private var largeLoadedKey: String? = null
     private var swipeCount = 0
-    private var pendingDownload: Wallpaper? = null
+    private var pendingDownload: Pair<Wallpaper, DownloadSizes.Option>? = null
 
     // Ambient background: the front layer, and a newer image waiting for the running crossfade
     private lateinit var ambientBlur: AmbientBlur
@@ -188,6 +188,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         binding.categoryChip.text = image.categoryName
         binding.titleText.text = image.displayTitle
 
+        renderDownloadSize()
         loadImages(image)
         loadAmbient(image)
         preloadNeighbours(next)
@@ -449,7 +450,17 @@ class ImageActivity : AppCompatActivity(), FeedListener {
             val url = viewer?.image?.let(ImageUrls::originalUrl) ?: return@setOnClickListener
             runCatching { startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
         }
-        binding.btnSave.setOnClickListener { viewer?.image?.let(::requestDownload) }
+        binding.btnSave.setOnClickListener {
+            val image = viewer?.image ?: return@setOnClickListener
+            requestDownload(image, DownloadSizes.preferred(this, DownloadSizes.options(this, image)))
+        }
+        binding.btnDownloadMore.setOnClickListener {
+            val image = viewer?.image ?: return@setOnClickListener
+            DownloadSheet.show(this, image) { option ->
+                renderDownloadSize()
+                requestDownload(image, option)
+            }
+        }
         binding.btnFavorite.setOnClickListener { viewer?.image?.let(::toggleSave) }
         binding.btnSaveMore.setOnClickListener {
             val image = viewer?.image ?: return@setOnClickListener
@@ -502,31 +513,38 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         startActivity(Intent.createChooser(intent, getString(R.string.share_via)))
     }
 
-    private fun requestDownload(image: Wallpaper) {
+    /** The remembered download size of the current image, under "Download". */
+    private fun renderDownloadSize() {
+        val image = viewer?.image ?: return
+        binding.downloadSizeLabel.setText(DownloadSizes.preferred(this, DownloadSizes.options(this, image)).label)
+    }
+
+    private fun requestDownload(image: Wallpaper, size: DownloadSizes.Option) {
         val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
         if (needsPermission) {
-            pendingDownload = image
+            pendingDownload = image to size
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), WRITE_EXTERNAL_STORAGE_CODE)
         } else {
-            download(image)
+            download(image, size)
         }
     }
 
-    /** Downloads the full-size file with the system DownloadManager into Pictures/WallApp. */
-    private fun download(image: Wallpaper) {
-        val url = ImageUrls.downloadUrl(image) ?: return
+    /** Downloads the file at [size] (cropped to fill it, or the original) into Pictures/WallApp. */
+    private fun download(image: Wallpaper, size: DownloadSizes.Option) {
+        val url = DownloadSizes.url(image, size) ?: return
+        val name = if (size.isOriginal) "wallapp-${image.id}.jpg" else "wallapp-${image.id}-${size.width}x${size.height}.jpg"
         try {
             val request = DownloadManager.Request(url.toUri())
                 .setTitle(image.displayTitle)
                 .setMimeType("image/jpeg")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_PICTURES, "WallApp/wallapp-${image.id}.jpg")
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_PICTURES, "WallApp/$name")
             @Suppress("DEPRECATION")
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) request.allowScanningByMediaScanner()
             (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
 
-            analyticsTracker.logEvent("file_download", mapOf("item_id" to image.key))
+            analyticsTracker.logEvent("file_download", mapOf("item_id" to image.key, "size" to size.id))
             PopularityStats.recordDownload(this, image)
             snackbar(getString(R.string.downloading))
             onPositiveAction()
@@ -538,10 +556,10 @@ class ImageActivity : AppCompatActivity(), FeedListener {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != WRITE_EXTERNAL_STORAGE_CODE) return
-        val image = pendingDownload
+        val pending = pendingDownload
         pendingDownload = null
-        if (image != null && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            download(image)
+        if (pending != null && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            download(pending.first, pending.second)
         } else {
             Toast.makeText(this, R.string.storage_permission_required, Toast.LENGTH_LONG).show()
         }
@@ -584,7 +602,11 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         dialog.show()
     }
 
-    /** Loads a screen-sized copy of the original off the main thread, then applies it. */
+    /**
+     * Loads a screen-sized copy off the main thread, then applies it. Fixed wallpapers use the
+     * image cropped server-side to this device's screen ("This device"); scrolling ones need a
+     * wider image, so they start from the original.
+     */
     private fun applyWallpaper(
         image: Wallpaper,
         targetFlag: Int?,
@@ -592,7 +614,12 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         successMessage: String,
         displayMode: WallpaperApplier.DisplayMode
     ) {
-        val url = ImageUrls.originalUrl(image) ?: return
+        val device = DownloadSizes.deviceSize(this)
+        val url = (if (displayMode == WallpaperApplier.DisplayMode.FIXED && device != null && ImageUrls.canCrop(image)) {
+            ImageUrls.sizedDownloadUrl(image, device.width, device.height)
+        } else {
+            ImageUrls.originalUrl(image)
+        }) ?: return
         Toast.makeText(this, getString(R.string.wallpaper_setting), Toast.LENGTH_SHORT).show()
         val metrics = resources.displayMetrics
         lifecycleScope.launch {

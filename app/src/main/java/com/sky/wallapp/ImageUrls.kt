@@ -93,6 +93,29 @@ object ImageUrls {
         }
     }
 
+    /**
+     * Download URL cropped to fill [w] × [h] (Cloudinary picks the subject with g_auto; Pexels crops
+     * from its original). Other hosts can't be cropped, so they fall back to [downloadUrl].
+     */
+    fun sizedDownloadUrl(image: Wallpaper, w: Int, h: Int): String? {
+        val url = image.mainUrl ?: return null
+        return when {
+            isCloudinary(url) -> transform(url, "c_fill,g_auto,w_$w,h_$h,q_auto/fl_attachment")
+            isPexels(url) -> listOf(
+                "w" to "$w", "h" to "$h", "fit" to "crop",
+                "dl" to "wallapp-${image.id.ifBlank { "wallpaper" }}-${w}x$h.jpg"
+            ).fold(url) { out, (k, v) -> setQueryParam(out, k, v) }
+            else -> downloadUrl(image)
+        }
+    }
+
+    /** True when filling [w] × [h] would upscale the original by more than 5% (unknown size: false). */
+    fun wouldUpscale(image: Wallpaper, w: Int, h: Int): Boolean =
+        image.width > 0 && image.height > 0 && maxOf(w.toDouble() / image.width, h.toDouble() / image.height) > 1.05
+
+    /** Whether [sizedDownloadUrl] can actually crop this image. */
+    fun canCrop(image: Wallpaper): Boolean = image.mainUrl.let { isCloudinary(it) || isPexels(it) }
+
     // ---- query string helpers (URLSearchParams.get / .set semantics) ----
 
     internal fun queryParam(url: String, name: String): String? {

@@ -144,17 +144,84 @@
                         android:layout_height="0dp"
                         android:layout_weight="1" />
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_save"
-                        style="@style/Widget.App.Pill.Soft"
+                    <!-- Download split button: main downloads at the remembered size, ▾ opens "Download for" -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/download_split"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="16dp"
-                        android:text="@string/download"
-                        app:backgroundTint="@color/glass_fill_bg"
-                        app:icon="@drawable/ic_download_24"
-                        app:iconSize="20dp" />
+                        android:layout_height="48dp"
+                        app:cardBackgroundColor="@color/glass_fill_bg"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:id="@+id/btn_save"
+                                android:layout_width="wrap_content"
+                                android:layout_height="match_parent"
+                                android:background="?attr/selectableItemBackground"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingStart="14dp"
+                                android:paddingEnd="10dp">
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:importantForAccessibility="no"
+                                    android:src="@drawable/ic_download_24"
+                                    app:tint="@color/onSurface" />
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="6dp"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="@string/download"
+                                        android:textAppearance="@style/TextAppearance.App.Chip"
+                                        android:textColor="@color/onSurface" />
+
+                                    <TextView
+                                        android:id="@+id/download_size_label"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:maxLines="1"
+                                        android:textColor="@color/onSurfaceVariant"
+                                        android:textSize="11sp"
+                                        tools:text="Desktop 4K" />
+
+                                </LinearLayout>
+
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="1dp"
+                                android:layout_height="24dp"
+                                android:layout_gravity="center_vertical"
+                                android:background="@color/glassFillPressed" />
+
+                            <ImageView
+                                android:id="@+id/btn_download_more"
+                                android:layout_width="36dp"
+                                android:layout_height="match_parent"
+                                android:background="?attr/selectableItemBackground"
+                                android:contentDescription="@string/download_size"
+                                android:paddingStart="4dp"
+                                android:paddingEnd="8dp"
+                                android:src="@drawable/ic_expand_more_24"
+                                app:tint="@color/onSurface" />
+
+                        </LinearLayout>
+
+                    </com.google.android.material.card.MaterialCardView>
 
                     <!-- Save split button: main toggles Favourites, ▾ opens "Save to…" -->
                     <com.google.android.material.card.MaterialCardView

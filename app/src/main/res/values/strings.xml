@@ -205,4 +205,19 @@
     <string name="privacy_policy_updates_body">We may update this Privacy Policy from time to time. Material updates will be reflected on this screen with a revised last updated date.</string>
     <string name="privacy_policy_contact_title">Contact Us</string>
     <string name="privacy_policy_contact_body">If you have privacy questions, contact us at:\nshineupindia@gmail.com\nshubhamskyjnp@gmail.com</string>
+
+    <!-- Download sizes (website DownloadMenu) -->
+    <string name="download_for">Download for</string>
+    <string name="download_for_hint">Cropped to fill the screen, never stretched</string>
+    <string name="download_size">Download size</string>
+    <string name="size_device">This device</string>
+    <string name="size_phone">Phone</string>
+    <string name="size_phone_qhd">Phone QHD</string>
+    <string name="size_tablet">Tablet</string>
+    <string name="size_desktop_hd">Desktop Full HD</string>
+    <string name="size_desktop_qhd">Desktop QHD</string>
+    <string name="size_desktop_4k">Desktop 4K</string>
+    <string name="size_original">Original</string>
+    <string name="size_original_detail">Full size, uncropped</string>
+    <string name="size_detail">%1$d × %2$d</string>
 </resources>
