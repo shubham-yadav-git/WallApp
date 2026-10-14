@@ -21,7 +21,7 @@ As an AI assistant, I (and other agents) maintain core competencies for this pro
 
 ### Specialized Agent Roles:
 - [Parity Guardian](.github/agents/PARITY_GUARDIAN.md): Ensures logic sync between Android and React Web.
-- [Release Specialist](.github/agents/RELEASE_SPECIALIST.md): Manages safe deployments and versioning.
+- [Release Specialist](.github/agents/RELEASE_SPECIALIST.md): Manages safe deployments, versioning, and release notes.
 - [UI/UX Stylist](.github/agents/UI_UX_STYLIST.md): Enforces design system and accessibility.
 - [Data Architect](.github/agents/DATA_ARCHITECT.md): Optimizes performance and Firebase usage.
 
@@ -51,6 +51,7 @@ can enable a daily auto-wallpaper rotation from favorites.
 
 - **Every push to `master` deploys to Play Store.** Do not push to `master` without explicit request.
 - Always bump `versionCode` in `app/build.gradle` for every release.
+- **Always update release notes** in `distribution/whatsnew/whatsnew-en-US` before pushing to `master`.
 - Work on branches and open PRs; `build-check.yml` runs on PRs.
 - Never commit keystores, secrets, or service-account JSON.
 
