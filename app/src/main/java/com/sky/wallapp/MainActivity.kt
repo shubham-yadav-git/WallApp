@@ -183,7 +183,12 @@ class MainActivity : AppCompatActivity(), FeedListener {
         // A restored activity (or one relaunched from Recents) still carries the original link: skip it
         val launchedFromHistory = intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
         if (savedInstanceState == null && !launchedFromHistory) {
-            parseDeepLink(intent)?.let { link ->
+            val link = parseDeepLink(intent)
+            if (link == null && forwardedToBrowser && isTaskRoot) {
+                finish() // opened only for a page the app doesn't show
+                return
+            }
+            link?.let {
                 link.category?.let { activeCategory = it }
                 link.savedTab?.let { savedTab = it; currentTab = Tab.SAVED }
                 pendingPin = link.pin
@@ -684,15 +689,31 @@ class MainActivity : AppCompatActivity(), FeedListener {
         }
     }
 
-    // ── Deep links (App Links: https://wallapp.shubhamy.in/?c=…&pin=…) ─────────
+    // ── Deep links (App Links: /{category}/{slug}-{id}/, /{category}/, /?c=…&pin=…) ──
 
     private class DeepLink(val category: String?, val pin: String?, val savedTab: SavedTab?)
 
-    /** Reads a wallapp.shubhamy.in link and consumes it (so a later onNewIntent doesn't see it twice). */
+    /** Set when the last link was a website page the app doesn't show (handed to the browser). */
+    private var forwardedToBrowser = false
+
+    /**
+     * Reads a wallapp.shubhamy.in link and consumes it (so a later onNewIntent doesn't see it twice).
+     * Paths the app doesn't show (/feed.json, /studio, …) open in the browser instead; null then.
+     */
     private fun parseDeepLink(intent: Intent?): DeepLink? {
+        forwardedToBrowser = false
         val uri: Uri = intent?.data ?: return null
         if (uri.host != WEB_HOST) return null
         intent.data = null
+        if (!uri.path.isNullOrEmpty() && uri.path != "/") {
+            val parsed = PinPaths.parsePath(uri.path)
+            if (parsed == null || parsed.category in WEB_ONLY_PATHS) {
+                forwardedToBrowser = true
+                openInBrowser(uri)
+                return null
+            }
+            return DeepLink(category = parsed.category, pin = parsed.pin, savedTab = null)
+        }
         val savedTab = if (uri.getQueryParameter("view") == "saved") {
             when (uri.getQueryParameter("tab")) {
                 "collections" -> SavedTab.COLLECTIONS
@@ -820,12 +841,13 @@ class MainActivity : AppCompatActivity(), FeedListener {
         profile.versionText.text = getString(R.string.version_format, appVersionName())
     }
 
+    private fun openWebsite() = openInBrowser("https://$WEB_HOST/".toUri())
+
     /**
-     * Opens the website in the browser. The site root is one of our App Links, so a plain
-     * VIEW intent could route straight back here; the browser selector avoids that.
+     * Opens [uri] in the browser. Every site path is one of our App Links, so a plain VIEW
+     * intent could route straight back here; the browser selector avoids that.
      */
-    private fun openWebsite() {
-        val uri = "https://$WEB_HOST/".toUri()
+    private fun openInBrowser(uri: Uri) {
         val inBrowser = Intent(Intent.ACTION_VIEW, uri).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
             selector = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_BROWSER)
@@ -1049,6 +1071,9 @@ class MainActivity : AppCompatActivity(), FeedListener {
         private const val ALL = "All"
         private const val POPULAR = "popular"
         private const val WEB_HOST = "wallapp.shubhamy.in"
+
+        /** First path segments that are website pages, not categories. */
+        private val WEB_ONLY_PATHS = setOf("studio")
         private const val PAGE_SIZE = 30
         private const val FIRST_PAGE_SIZE = 12
         private const val LOAD_AHEAD = 10

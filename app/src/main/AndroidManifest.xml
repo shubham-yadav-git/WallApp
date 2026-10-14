@@ -43,15 +43,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- App Links: https://wallapp.shubhamy.in/?pin={path}%2F{id} and ?c={path} -->
+            <!-- App Links, every path on the site: /{category}/{slug}-{id}/, /{category}/ and the old
+                 /?pin={path}%2F{id} / ?c={path}. MainActivity hands anything else to the browser. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="wallapp.shubhamy.in"
-                    android:path="/" />
+                    android:host="wallapp.shubhamy.in" />
             </intent-filter>
         </activity>
 

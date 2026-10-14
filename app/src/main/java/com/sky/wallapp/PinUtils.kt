@@ -31,10 +31,4 @@ object PinUtils {
         val sv = if (v == 0f) 0f else 2 * (1 - l / v)
         return floatArrayOf(h, sv, v)
     }
-
-    /** Share / deep link for a wallpaper on the website. */
-    fun webUrl(image: Wallpaper): String =
-        "https://wallapp.shubhamy.in/?c=${encode(image.category)}&pin=${encode(image.key)}"
-
-    private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
 }

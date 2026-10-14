@@ -508,7 +508,7 @@ class ImageActivity : AppCompatActivity(), FeedListener {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, image.displayTitle)
-            putExtra(Intent.EXTRA_TEXT, PinUtils.webUrl(image))
+            putExtra(Intent.EXTRA_TEXT, PinPaths.webUrl(image))
         }
         startActivity(Intent.createChooser(intent, getString(R.string.share_via)))
     }
