@@ -60,21 +60,27 @@ Several files are **ports of website files and must stay in sync** with them:
 
 | App | Website source of truth |
 |---|---|
-| `ImageUrls.kt` (+ `ImageUrlsTest`) | `src/lib/imageUrls.js` (+ tests) |
+| `ImageUrls.kt` (+ `ImageUrlsTest`) | `src/lib/imageUrls.mjs` (+ tests) |
 | `FeedSnapshot.kt` | `scripts/build-feed.mjs`, `src/lib/feedSnapshot.js` (URL prefixes!) |
 | `WallpaperRepository.kt` | `src/features/public/usePublicRecords.js`, `src/hooks/useCategories.js` |
 | `SavedStore.kt` (+ `SavedStoreTest`) | `src/lib/savedStore.js` (+ tests) — storage JSON shape is shared |
 | `SavedSync.kt` | `src/features/public/savedSync.js` |
 | `PopularityStats.kt` | `src/features/public/stats.js` |
-| `PinUtils.kt` (+ `PinUtilsTest`) | `src/features/public/pinUtils.js` (FNV-1a hash, share URL) |
+| `PinUtils.kt` (+ `PinUtilsTest`) | `src/features/public/pinUtils.js` (FNV-1a hash) |
+| `PinPaths.kt` (+ `PinPathsTest`) | `src/lib/pinPaths.mjs` (+ tests) — slug, share URL, path deep links |
+| `SizeFilters.kt` (+ `SizeFiltersTest`) | `src/lib/sizeFilters.js` (+ tests) |
+| `DownloadSizes.kt` | `src/features/public/DownloadMenu.js`, `SCREEN_SIZES` in `src/lib/imageUrls.mjs` |
+| `Members.kt` (+ `MembersTest`) | `src/features/members/recordMember.js`, `src/lib/members.js` |
 
 ## Source map (`app/src/main/java/com/sky/wallapp/`)
 
 | File | Role |
 |---|---|
 | `WallAppApplication.kt` | App init: Glide config (500 MB disk cache, 8 source threads), Firebase persistence, `SavedRepository.init`, `WallpaperRepository.prewarm`, re-schedules auto-wallpaper |
-| `MainActivity.kt` | Tabs **Home** (website header: brand, search, account; chips All / 🔥 Popular / categories; recently viewed strip; masonry feed paged 30 at a time; native ads every 15), **Saved** (sync banner; Favourites / Collections / Recently viewed), **You** (account + settings). Handles App Links `?pin=` / `?c=` |
-| `ImageActivity.kt` | Close-up: contained image over blurred copy, counter, swipe through the opening list, Share (web link) / Open full size / Download (DownloadManager) / Save ▾ / Set as wallpaper, category chip, "More like this" (60, seeded by the image); related opens push a Back step |
+| `MainActivity.kt` | Tabs **Home** (website header: logo, search, account; chips All / 🔥 Popular / categories; recently viewed strip; size filters All sizes · Phone · Desktop + 4K; masonry feed paged 30 at a time; native ads every 15), **Saved** (sync banner; Favourites / Collections / Recently viewed), **You** (account + settings). Handles App Links `/{category}/{slug}-{id}/`, `/{category}/`, `?pin=` / `?c=`; other site paths go to the browser |
+| `ImageActivity.kt` | Close-up ("glass"): blurred wallpaper behind everything (crossfades on swipe), contained image, glass info panel, counter, swipe through the opening list (neighbours preloaded), Share (web page link) / Open full size / Download ▾ (sizes) / Save ▾ / Set as wallpaper, category chip, original size + 4K badge, "More like this" (60, seeded by the image); related opens push a Back step |
+| `AmbientBlur.kt` | Glide transformation: blurs a 96px copy once and blends it over the page colour (no live blur) |
+| `DownloadSheet.kt` | "Download for" bottom sheet (remembers the choice) |
 | `CollectionActivity.kt` | One collection: rename, delete (Undo shown on Saved), long-press to remove a wallpaper (Undo) |
 | `SaveToSheet.kt` | "Save to…" bottom sheet: Favourites, collections, inline New collection |
 | `FeedAdapter.kt` | One `ListAdapter` for every masonry screen; `FeedRow` types (pin, ad, heading, empty, recent strip, sync banner, saved tabs, collection card); layout manager factory (2/3/4 columns) |
@@ -83,14 +89,14 @@ Several files are **ports of website files and must stay in sync** with them:
 | `Wallpaper.kt` | App-wide wallpaper model; `key` = `"{category}/{id}"`; defensive parse from a `DataSnapshot` |
 | `WallpaperRepository.kt` | Loads everything: cached feed.json → fresh feed.json → live `orderByKey().startAfter(last)` per category (full live read only without a snapshot). Never reads the DB root |
 | `SavedRepository.kt` | Device copy of saved data (prefs key `wallapp:saved:v1`) + actions with analytics; migrates old URL-based favourites once |
-| `SavedSync.kt` | Google sign-in (Credential Manager → Firebase Auth) and `/users/{uid}/saved` sync |
+| `SavedSync.kt` | Google sign-in (Credential Manager → Firebase Auth) and `/users/{uid}/saved` sync; records `/members/{uid}` |
 | `PopularityStats.kt` | `/stats/{path}/{id}` downloads (+1 once per device) and favorites (±1) |
 | `FeedAds.kt` | Up to 5 AdMob native ads rendered as pins; keep the "Ad" badge + "Sponsored" line (policy) |
 | `WallpaperSwipeSession.kt` | In-memory list handoff to the detail screen (falls back to lookup by key) |
 | `WallpaperApplier.kt` | Resizes/composes a bitmap to screen size (FIXED or SCROLLABLE) and calls `WallpaperManager` |
 | `AutoWallpaperManager.kt` / `DailyWallpaperWorker.kt` | Opt-in daily rotation through favourites (by key) via WorkManager |
 | `ThemeSetting.kt` | System default / Light / Dark choice (You tab), applied in `WallAppApplication` via `AppCompatDelegate` |
-| `AnalyticsTracker.kt` | Firebase Analytics wrapper; website event names: `select_content`, `search`, `file_download`, `share`, `add_to_wishlist`, `remove_from_wishlist`, `create_collection`, `login` |
+| `AnalyticsTracker.kt` | Firebase Analytics wrapper; website event names: `select_content`, `search`, `file_download` (+ `size`), `share`, `add_to_wishlist`, `remove_from_wishlist`, `create_collection`, `login`, `filter_size` (`fit`, `uhd`) |
 
 ## Firebase Realtime Database
 
@@ -99,17 +105,24 @@ Several files are **ports of website files and must stay in sync** with them:
 /{path}/{pushId}        { title, search, image, cloudinaryUrl?, thumbs?, width?, height? }
 /stats/{path}/{pushId}  { downloads, favorites }
 /users/{uid}/saved      { json: "<SavedStore JSON>", updatedAt }
+/members/{uid}          { provider: "google"|"email", createdAt, lastSeen }   write-only for the app
 ```
 
 - **Rules (deployed from the website repo):** reads are public except the **root**
   and `/users`. The app may only write `/stats/**` counters (+1 / ±1 via
-  `ServerValue.increment`) and the signed-in user's own `/users/{uid}/saved`.
-  Never read `/` or write anything else; never ship secrets (Cloudinary secret,
+  `ServerValue.increment`), the signed-in user's own `/users/{uid}/saved`, and an update
+  of exactly `provider` / `createdAt` / `lastSeen` at their own `/members/{uid}`
+  (at most once a day per device). Never read `/` or write anything else; never ship secrets (Cloudinary secret,
   service accounts) in the APK.
 - Records are parsed by hand (`Wallpaper.fromSnapshot`), not by reflection, so
   unexpected field types can't crash the app.
-- **Image URLs:** use `ImageUrls` (tile 474/236 px, large 1080/1400 px, original,
-  download). Never load originals in lists. Main URL = `cloudinaryUrl` else `image`.
+- **Image URLs:** use `ImageUrls` (tile 474/236 px, large 1080/1400 px, ambient 96 px,
+  original, download, sized download). Never load originals in lists. Main URL =
+  `cloudinaryUrl` else `image`.
+- **Sizes:** `width`/`height` are the ORIGINAL's size (feed.json `sizes`). A Pexels tile's
+  shape always comes from its URL's `w`/`h` crop, never from `width`/`height`; for
+  Cloudinary, `width`/`height` is the shape. The Desktop filter shows Pexels images in
+  their natural shape (`naturalVariant`, cached under `Wallpaper.layoutKey`).
 - **Identity:** `Wallpaper.key` (`"{path}/{pushId}"`) everywhere — favourites,
   collections, recent, stats, links. Push keys sort by time (newest = descending).
 - feed.json (`https://wallapp.shubhamy.in/feed.json`, regenerated ~30 min) is cached
