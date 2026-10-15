@@ -55,7 +55,7 @@ git push origin master  # Automatically deploys!
 # → Deploy to Google Play → Run workflow → Select track
 ```
 # Run helper script
-./deployment-helper.sh
+./scripts/deployment-helper.sh
 ```
 
 ### Manual Workflow Trigger
@@ -96,8 +96,8 @@ base64 -i /path/to/service-account.json | pbcopy
 | `.github/workflows/build-check.yml` | Auto-build on push |
 | `.github/workflows/release-build.yml` | Create releases |
 | `.github/workflows/deploy-playstore.yml` | Deploy to Play Store |
-| `DEPLOYMENT_GUIDE.md` | Full documentation |
-| `deployment-helper.sh` | Interactive assistant |
+| `../deployment/DEPLOYMENT_GUIDE.md` | Full documentation |
+| `scripts/deployment-helper.sh` | Interactive assistant |
 | `app/build.gradle` | Signing configuration |
 
 ---
@@ -156,9 +156,9 @@ base64 -i /path/to/service-account.json | pbcopy
 
 ## 📞 Need Help?
 
-1. Read `DEPLOYMENT_GUIDE.md` for detailed instructions
-2. Check `ARCHITECTURE.md` for visual overview
-3. Run `./deployment-helper.sh` for interactive help
+1. Read `../deployment/DEPLOYMENT_GUIDE.md` for detailed instructions
+2. Check `../architecture/ARCHITECTURE.md` for visual overview
+3. Run `./scripts/deployment-helper.sh` for interactive help
 4. Check GitHub Actions logs for error details
 
 ---

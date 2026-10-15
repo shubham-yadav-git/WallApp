@@ -39,10 +39,10 @@ on:
 - ✅ Automatic track selection (internal for push, custom for manual)
 
 ### 3. Documentation Updated
-- ✅ `QUICK_REFERENCE.md` - Updated deployment commands
-- ✅ `.github/PROJECT_CONTEXT.md` - Updated current state
+- ✅ `../reference/QUICK_REFERENCE.md` - Updated deployment commands
+- ✅ `../architecture/PROJECT_CONTEXT.md` - Updated current state
 - ✅ `.github/copilot-instructions.md` - Updated CI/CD workflows
-- ✅ `.github/AUTO_DEPLOY_CONFIGURED.md` - Complete deployment guide (NEW!)
+- ✅ `AUTO_DEPLOY_CONFIGURED.md` - Complete deployment guide (NEW!)
 
 ---
 
@@ -205,7 +205,7 @@ git push origin master
 
 ## 📚 Documentation
 
-Complete guide: `.github/AUTO_DEPLOY_CONFIGURED.md`
+Complete guide: `AUTO_DEPLOY_CONFIGURED.md`
 
 Includes:
 - ✅ Detailed workflow explanation

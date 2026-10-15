@@ -1,6 +1,6 @@
 # WallApp Project Context
 
-> For AI agents: the canonical, up-to-date instructions are in `/AGENTS.md`.
+> For AI agents: the canonical, up-to-date instructions are in `.github/agents/AGENTS.md`.
 
 ## Quick Facts
 - **App Name**: WallApp
@@ -76,7 +76,7 @@ Visit: https://github.com/shubham-yadav-git/WallApp/actions
 ## Documentation Files
 - README.md - Main docs
 - ARCHITECTURE.md - App architecture
-- DEPLOYMENT_GUIDE.md - Deployment instructions
-- PLAY_STORE_SERVICE_ACCOUNT_SETUP.md - Play Console setup
-- QUICK_REFERENCE.md - Quick commands
+- ../deployment/DEPLOYMENT_GUIDE.md - Deployment instructions
+- ../deployment/PLAY_STORE_SERVICE_ACCOUNT_SETUP.md - Play Console setup
+- ../reference/QUICK_REFERENCE.md - Quick commands
 

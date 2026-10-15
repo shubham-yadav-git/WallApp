@@ -81,7 +81,7 @@ case $choice in
         echo -e "\n${BLUE}Committing workflow files...${NC}"
         git add .github/workflows/
         git add app/build.gradle
-        git add DEPLOYMENT_GUIDE.md
+        git add docs/deployment/DEPLOYMENT_GUIDE.md
         git status
         echo ""
         read -p "Commit message (or press Enter for default): " commit_msg
@@ -126,10 +126,10 @@ case $choice in
         ;;
     4)
         echo -e "\n${BLUE}Opening deployment guide...${NC}"
-        if [ -f "DEPLOYMENT_GUIDE.md" ]; then
-            cat DEPLOYMENT_GUIDE.md | less
+        if [ -f "docs/deployment/DEPLOYMENT_GUIDE.md" ]; then
+            cat docs/deployment/DEPLOYMENT_GUIDE.md | less
         else
-            echo -e "${RED}❌ DEPLOYMENT_GUIDE.md not found${NC}"
+            echo -e "${RED}❌ docs/deployment/DEPLOYMENT_GUIDE.md not found${NC}"
         fi
         ;;
     5)
@@ -148,7 +148,7 @@ case $choice in
         echo -e "${YELLOW}For Play Store Deployment:${NC}"
         echo "  □ PLAY_STORE_SERVICE_ACCOUNT_JSON"
         echo ""
-        echo -e "See ${BLUE}DEPLOYMENT_GUIDE.md${NC} for detailed setup instructions"
+        echo -e "See ${BLUE}docs/deployment/DEPLOYMENT_GUIDE.md${NC} for detailed setup instructions"
         ;;
     6)
         echo -e "${GREEN}Goodbye!${NC}"

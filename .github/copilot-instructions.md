@@ -1,6 +1,6 @@
 # GitHub Copilot Instructions for WallApp
 
-The canonical agent instructions are in [`AGENTS.md`](../AGENTS.md) at the repo root.
+The canonical agent instructions are in [`AGENTS.md`](agents/AGENTS.md).
 Read it before suggesting changes. Key points:
 
 - Kotlin-only Android app (`com.sky.wallapp`), XML layouts + ViewBinding, minSdk 24, target/compileSdk 36, JDK 21, AGP 9.

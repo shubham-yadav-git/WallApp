@@ -20,10 +20,10 @@ As an AI assistant, I (and other agents) maintain core competencies for this pro
 - `DEVELOPER_ASSISTANT.md`: General identity and skill summary.
 
 ### Specialized Agent Roles:
-- [Parity Guardian](.github/agents/PARITY_GUARDIAN.md): Ensures logic sync between Android and React Web.
-- [Release Specialist](.github/agents/RELEASE_SPECIALIST.md): Manages safe deployments, versioning, and release notes.
-- [UI/UX Stylist](.github/agents/UI_UX_STYLIST.md): Enforces design system and accessibility.
-- [Data Architect](.github/agents/DATA_ARCHITECT.md): Optimizes performance and Firebase usage.
+- [Parity Guardian](PARITY_GUARDIAN.md): Ensures logic sync between Android and React Web.
+- [Release Specialist](RELEASE_SPECIALIST.md): Manages safe deployments, versioning, and release notes.
+- [UI/UX Stylist](UI_UX_STYLIST.md): Enforces design system and accessibility.
+- [Data Architect](DATA_ARCHITECT.md): Optimizes performance and Firebase usage.
 
 ## What this is
 
@@ -58,7 +58,7 @@ can enable a daily auto-wallpaper rotation from favorites.
 ## Website parity
 
 The app mirrors [wallapp.shubhamy.in](https://wallapp.shubhamy.in). Keep logic in sync for:
-`ImageUrls`, `SavedStore`, `SavedSync`, `PinUtils`, `PinPaths`, `Members`, etc. (See [Parity Guardian](.github/agents/PARITY_GUARDIAN.md)).
+`ImageUrls`, `SavedStore`, `SavedSync`, `PinUtils`, `PinPaths`, `Members`, etc. (See [Parity Guardian](PARITY_GUARDIAN.md)).
 
 ## Source map (`app/src/main/java/com/sky/wallapp/`)
 
@@ -69,4 +69,4 @@ The app mirrors [wallapp.shubhamy.in](https://wallapp.shubhamy.in). Keep logic i
 - `SavedSync.kt`: Cloud sync via Firebase and Google Sign-in.
 - `AutoWallpaperManager.kt`: WorkManager rotation logic.
 
-(For full details, see the code or the [Data Architect](.github/agents/DATA_ARCHITECT.md) guide.)
+(For full details, see the code or the [Data Architect](DATA_ARCHITECT.md) guide.)

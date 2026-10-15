@@ -2,7 +2,7 @@
 
 All project instructions for agents live in AGENTS.md — read it first.
 
-@./AGENTS.md
+@AGENTS.md
 
 ## Developer Assistant Skills
 - **Android Expert:** Deep knowledge of Activity lifecycle, ViewBinding, and XML layouts.

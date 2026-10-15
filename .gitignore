@@ -13,7 +13,7 @@
 .externalNativeBuild
 .cxx
 
-# Temporary documentation files (use .github/CLEANUP_SUMMARY.md for reference)
+# Temporary documentation files (use docs/history/CLEANUP_SUMMARY.md for reference)
 *_FIX*.md
 *_COMPLETE.md
 *_SUMMARY.md

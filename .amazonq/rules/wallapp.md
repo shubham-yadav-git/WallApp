@@ -1,6 +1,6 @@
 # WallApp rules for Amazon Q
 
-The canonical agent instructions are in `AGENTS.md` at the repo root. Read it before making changes. Key points:
+The canonical agent instructions are in `.github/agents/AGENTS.md`. Read it before making changes. Key points:
 
 - Kotlin-only Android app (`com.sky.wallapp`), XML layouts + ViewBinding, minSdk 24, target/compileSdk 36, JDK 21, AGP 9.
 - **Every push to `master` deploys to the Play Store internal track.** Don't push to `master` unless asked.
