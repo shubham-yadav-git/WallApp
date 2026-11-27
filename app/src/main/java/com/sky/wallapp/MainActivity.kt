@@ -46,7 +46,12 @@ import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.sky.wallapp.databinding.ActivityMainBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 
 /**
@@ -91,6 +96,8 @@ class MainActivity : AppCompatActivity(), FeedListener {
     private data class FeedInputs(val records: List<Wallpaper>, val category: String, val query: String, val sizes: SizeFilters.Filters)
     private var feedInputs: FeedInputs? = null
     private var feedList: List<Wallpaper> = emptyList()
+    private var feedRequest: FeedInputs? = null
+    private var feedJob: Job? = null
 
     // Paged pins of the current screen: revealed 30 at a time once their shapes are known
     private var pinListKey = ""
@@ -447,7 +454,18 @@ class MainActivity : AppCompatActivity(), FeedListener {
     private fun render(scrollToTop: Boolean = false) {
         if (!::adapter.isInitialized) return
         when (currentTab) {
-            Tab.HOME -> adapter.submitList(homeRows()) { afterSubmit(scrollToTop) }
+            Tab.HOME -> {
+                val inputs = currentFeedInputs()
+                val feed = if (isFeedReady()) {
+                    cachedHomeFeed(inputs) ?: run {
+                        requestHomeFeed(inputs)
+                        null
+                    }
+                } else {
+                    null
+                }
+                adapter.submitList(homeRows(feed)) { afterSubmit(scrollToTop) }
+            }
             Tab.SAVED -> adapter.submitList(savedRows()) { afterSubmit(scrollToTop) }
             Tab.YOU -> renderProfile()
         }
@@ -467,36 +485,59 @@ class MainActivity : AppCompatActivity(), FeedListener {
      * Filter + order like the website: All shuffled per session, a category newest first, Popular by
      * score; then the size filters. Desktop shows Pexels images in their original (landscape) shape.
      */
-    private fun homeFeed(): List<Wallpaper> {
-        val inputs = FeedInputs(repo.records, activeCategory, query, sizeFilters)
-        val cached = feedInputs
-        if (cached != null && cached.records === inputs.records && cached == inputs) {
-            return feedList
+    private fun currentFeedInputs() = FeedInputs(repo.records, activeCategory, query, sizeFilters)
+
+    private fun sameFeedInputs(first: FeedInputs, second: FeedInputs) =
+        first.records === second.records &&
+            first.category == second.category &&
+            first.query == second.query &&
+            first.sizes == second.sizes
+
+    private fun cachedHomeFeed(inputs: FeedInputs): List<Wallpaper>? =
+        feedInputs?.takeIf { sameFeedInputs(it, inputs) }?.let { feedList }
+
+    private fun requestHomeFeed(inputs: FeedInputs) {
+        if (feedRequest?.let { sameFeedInputs(it, inputs) } == true) return
+        feedJob?.cancel()
+        feedRequest = inputs
+        feedJob = lifecycleScope.launch {
+            val result = withContext(Dispatchers.Default) { buildHomeFeed(inputs) }
+            if (feedRequest !== inputs) return@launch
+            feedInputs = inputs
+            feedList = result
+            feedRequest = null
+            feedJob = null
+            openPendingPin()
+            if (currentTab == Tab.HOME) render()
         }
-        val matches = repo.records.filter { image ->
-            if (activeCategory != ALL && activeCategory != POPULAR && image.category != activeCategory) return@filter false
-            if (sizeFilters.active && !SizeFilters.matches(image, sizeFilters)) return@filter false
-            query.isEmpty() ||
-                "${image.title.orEmpty()} ${image.search.orEmpty()} ${image.categoryName}".lowercase().contains(query)
-        }.let { list -> if (sizeFilters.fit == SizeFilters.Fit.DESKTOP) list.map(ImageUrls::naturalVariant) else list }
+    }
+
+    private suspend fun buildHomeFeed(inputs: FeedInputs): List<Wallpaper> {
+        val matches = ArrayList<Wallpaper>()
+        inputs.records.forEachIndexed { index, image ->
+            if (index % 256 == 0) currentCoroutineContext().ensureActive()
+            if (inputs.category != ALL && inputs.category != POPULAR && image.category != inputs.category) return@forEachIndexed
+            if (inputs.sizes.active && !SizeFilters.matches(image, inputs.sizes)) return@forEachIndexed
+            if (inputs.query.isNotEmpty() &&
+                !"${image.title.orEmpty()} ${image.search.orEmpty()} ${image.categoryName}".lowercase().contains(inputs.query)
+            ) return@forEachIndexed
+            matches += if (inputs.sizes.fit == SizeFilters.Fit.DESKTOP) ImageUrls.naturalVariant(image) else image
+        }
         // Shuffle keys computed once per image, not once per comparison
         fun shuffleKeys() = matches.associateWith { PinUtils.hash(PinUtils.SEED + it.key) }
-        feedList = when (activeCategory) {
+        return when (inputs.category) {
             POPULAR -> shuffleKeys().let { keys ->
                 matches.sortedWith(compareByDescending<Wallpaper> { it.score }.thenBy { keys.getValue(it) })
             }
             ALL -> shuffleKeys().let { keys -> matches.sortedBy { keys.getValue(it) } }
             else -> matches.reversed() // newest first (push keys sort by time)
         }
-        feedInputs = inputs
-        return feedList
     }
 
     private fun recentItems(): List<Wallpaper> = saved.recent.mapNotNull { repo.byKey[it.key] }
 
-    private fun homeRows(): List<FeedRow> = buildList {
+    private fun homeRows(feed: List<Wallpaper>?): List<FeedRow> = buildList {
         val ready = isFeedReady()
-        val feed = if (ready) homeFeed() else emptyList()
 
         if (activeCategory == ALL && query.isEmpty()) {
             val recent = recentItems()
@@ -510,7 +551,7 @@ class MainActivity : AppCompatActivity(), FeedListener {
             categoryName != null -> getString(R.string.heading_category, categoryName)
             else -> getString(R.string.heading_discover)
         }
-        val count = if (ready) {
+        val count = if (ready && feed != null) {
             resources.getQuantityString(R.plurals.wallpaper_count, feed.size, NumberFormat.getInstance().format(feed.size))
         } else {
             null
@@ -518,7 +559,7 @@ class MainActivity : AppCompatActivity(), FeedListener {
         add(FeedRow.Heading(title, count))
         add(FeedRow.SizeFilterBar(sizeFilters))
 
-        if (!ready) {
+        if (!ready || feed == null) {
             add(FeedRow.Loading)
             return@buildList
         }
@@ -764,8 +805,13 @@ class MainActivity : AppCompatActivity(), FeedListener {
         val key = pendingPin ?: return
         val image = repo.byKey[key]
         if (image != null) {
+            val inputs = currentFeedInputs()
+            if (isFeedReady() && cachedHomeFeed(inputs) == null) {
+                requestHomeFeed(inputs)
+                return
+            }
             pendingPin = null
-            val list = if (isFeedReady()) homeFeed().takeIf { feed -> feed.any { it.key == key } } else null
+            val list = cachedHomeFeed(inputs)?.takeIf { feed -> feed.any { it.key == key } }
             openPin(image, list ?: listOf(image), "link")
         } else if (repo.allLoaded) {
             pendingPin = null

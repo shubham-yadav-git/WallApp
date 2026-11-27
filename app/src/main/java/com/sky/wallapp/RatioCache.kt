@@ -6,6 +6,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -18,8 +23,10 @@ object RatioCache {
 
     const val FALLBACK_RATIO = 1.4
     private const val MEASURE_TIMEOUT_MS = 2_500L
+    private const val MAX_CONCURRENT_MEASUREMENTS = 3
 
     private val ratios = ConcurrentHashMap<String, Double>()
+    private val measurementPermits = Semaphore(MAX_CONCURRENT_MEASUREMENTS)
 
     fun ratioOf(image: Wallpaper): Double =
         ratios[image.layoutKey] ?: ImageUrls.knownRatio(image)?.also { ratios[image.layoutKey] = it } ?: FALLBACK_RATIO
@@ -32,17 +39,28 @@ object RatioCache {
             .map { image ->
                 async(Dispatchers.IO) {
                     val url = ImageUrls.tileUrl(image) ?: return@async
-                    // Future.get with a timeout: a blocking get() can't be cancelled by coroutines
-                    val future = Glide.with(appContext).load(url).submit()
-                    runCatching {
-                        val drawable = future.get(MEASURE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                        if (drawable.intrinsicWidth > 0 && drawable.intrinsicHeight > 0) {
-                            ratios[image.layoutKey] = drawable.intrinsicHeight.toDouble() / drawable.intrinsicWidth
+                    measurementPermits.withPermit {
+                        val glide = Glide.with(appContext)
+                        val future = glide.load(url).submit()
+                        try {
+                            val drawable = future.get(MEASURE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                            if (drawable.intrinsicWidth > 0 && drawable.intrinsicHeight > 0) {
+                                ratios[image.layoutKey] = drawable.intrinsicHeight.toDouble() / drawable.intrinsicWidth
+                            } else {
+                                ratios[image.layoutKey] = FALLBACK_RATIO
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: InterruptedException) {
+                            ratios[image.layoutKey] = FALLBACK_RATIO
+                            Thread.currentThread().interrupt()
+                            currentCoroutineContext().ensureActive()
+                        } catch (_: Exception) {
+                            // Slow or broken: lock in the fallback so the tile never changes shape later
+                            ratios[image.layoutKey] = FALLBACK_RATIO
+                        } finally {
+                            glide.clear(future)
                         }
-                    }.onFailure {
-                        // Slow or broken: lock in the fallback so the tile never changes shape later
-                        ratios[image.layoutKey] = FALLBACK_RATIO
-                        Glide.with(appContext).clear(future)
                     }
                 }
             }
