@@ -22,6 +22,7 @@ As an AI assistant, I (and other agents) maintain core competencies for this pro
 ### Specialized Agent Roles:
 - [Parity Guardian](PARITY_GUARDIAN.md): Ensures logic sync between Android and React Web.
 - [Release Specialist](RELEASE_SPECIALIST.md): Manages safe deployments, versioning, and release notes.
+- [Regression Tester](REGRESSION_TESTER.md): Runs feature-focused regression checks before releases or on request.
 - [UI/UX Stylist](UI_UX_STYLIST.md): Enforces design system and accessibility.
 - [Data Architect](DATA_ARCHITECT.md): Optimizes performance and Firebase usage.
 
