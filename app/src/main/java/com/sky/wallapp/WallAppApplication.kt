@@ -15,6 +15,7 @@ class WallAppApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        createNotificationChannel()
         ThemeSetting.apply(this)
         configureGlide()
         configureFirebasePersistenceOnce()
@@ -40,6 +41,20 @@ class WallAppApplication : Application(), Configuration.Provider {
             }
 
             firebasePersistenceConfigured = true
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = android.app.NotificationChannel(
+                com.sky.wallapp.service.WallAppMessagingService.CHANNEL_ID,
+                "WallApp Notifications",
+                android.app.NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "General notifications about new wallpapers and updates"
+            }
+            val notificationManager = getSystemService(android.app.NotificationManager::class.java)
+            notificationManager?.createNotificationChannel(channel)
         }
     }
 

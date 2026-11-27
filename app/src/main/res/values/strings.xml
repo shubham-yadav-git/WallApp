@@ -81,6 +81,12 @@
     <string name="settings_section_app">App</string>
     <string name="auto_wallpaper_subtitle">Rotate through your saved wallpapers every day</string>
     <string name="check_for_updates">Check for updates</string>
+    <string name="wallpaper_notifications">Wallpaper updates</string>
+    <string name="wallpaper_notifications_subtitle">Get occasional news about new wallpaper collections</string>
+    <string name="notifications_permission_denied">Allow notifications in system settings to receive wallpaper updates.</string>
+    <string name="notifications_update_failed">Couldn’t update notification settings. Please try again.</string>
+    <string name="new_wallpaper_notification">New wallpaper</string>
+    <string name="new_wallpaper_notification_body">Tap to explore this wallpaper.</string>
     <string name="version_format">Version %1$s</string>
     <string name="exit_title">Exit app</string>
     <string name="exit_message">Are you sure you want to exit?</string>
@@ -192,9 +198,9 @@
     <string name="privacy_policy_last_updated">Last updated: March 19, 2026</string>
     <string name="privacy_policy_intro">WallApp provides wallpaper browsing and download features. This policy explains what information is used when you use the app.</string>
     <string name="privacy_policy_data_title">Information We Collect</string>
-    <string name="privacy_policy_data_body">We do not require account sign-in, and we do not intentionally collect personal profile information like your name or address. Wallpaper data (titles, image URLs, categories) is loaded from our backend to show content in the app. Third-party services used by the app (such as ad and analytics providers) may collect technical identifiers like device and advertising IDs according to their own policies.</string>
+    <string name="privacy_policy_data_body">We do not require account sign-in, and we do not intentionally collect personal profile information like your name or address. Wallpaper data (titles, image URLs, categories) is loaded from our backend to show content in the app. If you opt in to wallpaper notifications, Firebase Cloud Messaging uses an installation token to deliver them; the app does not log or upload that token. Third-party services used by the app (such as ad and analytics providers) may collect technical identifiers like device and advertising IDs according to their own policies.</string>
     <string name="privacy_policy_permissions_title">Permissions We Use</string>
-    <string name="privacy_policy_permissions_body">- INTERNET: Used to load wallpapers and category data from online sources.\n- WRITE_EXTERNAL_STORAGE (older Android versions): Used to save wallpapers to your device gallery when you choose Save.\n- SET_WALLPAPER: Used only when you choose Set Wallpaper from the app.\n- AD_ID: Used by Google Ad services to provide ads and ad measurement.</string>
+    <string name="privacy_policy_permissions_body">- INTERNET: Used to load wallpapers and category data from online sources.\n- WRITE_EXTERNAL_STORAGE (older Android versions): Used to save wallpapers to your device gallery when you choose Save.\n- SET_WALLPAPER: Used only when you choose Set Wallpaper from the app.\n- POST_NOTIFICATIONS (Android 13 and newer): Used only if you opt in to wallpaper update notifications.\n- AD_ID: Used by Google Ad services to provide ads and ad measurement.</string>
     <string name="privacy_policy_sharing_title">How We Use Information</string>
     <string name="privacy_policy_sharing_body">We use app data to show wallpapers, enable search and category browsing, save/share wallpapers, and improve app stability. We do not sell your personal data. We may rely on trusted services such as Firebase and Google services to deliver app functionality.</string>
     <string name="privacy_policy_security_title">Data Security</string>

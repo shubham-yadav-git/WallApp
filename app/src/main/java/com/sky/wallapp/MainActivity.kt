@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Parcelable
+import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -45,6 +46,8 @@ import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.messaging.FirebaseMessaging
+import com.sky.wallapp.service.WallAppMessagingService
 import com.sky.wallapp.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -91,6 +94,8 @@ class MainActivity : AppCompatActivity(), FeedListener {
     private var saved = SavedStore.emptyState()
     private var account = SavedSync.Account()
     private var signingIn = false
+    private var updatingNotificationSubscription = false
+    private var pendingNotificationPermission = false
 
     // Home feed list cache (filtering + sorting 10k+ records is only redone when inputs change)
     private data class FeedInputs(val records: List<Wallpaper>, val category: String, val query: String, val sizes: SizeFilters.Filters)
@@ -156,14 +161,33 @@ class MainActivity : AppCompatActivity(), FeedListener {
         if (data.getBooleanExtra(ImageActivity.EXTRA_OPEN_SAVED, false)) goSaved(SavedTab.FAVORITES)
     }
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (pendingNotificationPermission) {
+            pendingNotificationPermission = false
+            if (isGranted) {
+                subscribeToWallpaperNotifications()
+            } else {
+                renderNotificationSubscription()
+                Toast.makeText(this, R.string.notifications_permission_denied, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        pendingNotificationPermission =
+            savedInstanceState?.getBoolean(STATE_PENDING_NOTIFICATION_PERMISSION) ?: false
         enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         analyticsTracker = AnalyticsTracker(FirebaseAnalytics.getInstance(this))
+        notificationWallpaperKey(intent)?.let {
+            analyticsTracker.logEvent("notification_open", mapOf("wallpaper_key" to it))
+        }
         appUpdateManager = AppUpdateManagerFactory.create(this)
         appUpdateManager.registerListener(installStateUpdatedListener)
         analyticsTracker.logEvent("app_open")
@@ -207,6 +231,10 @@ class MainActivity : AppCompatActivity(), FeedListener {
                 pendingPin = link.pin
             }
         }
+        notificationWallpaperKey(intent)?.let { key ->
+            currentTab = Tab.HOME
+            pendingPin = key
+        }
 
         val restoredTab = savedInstanceState?.getString(STATE_TAB)
             ?.let { name -> Tab.entries.firstOrNull { it.name == name } }
@@ -219,6 +247,15 @@ class MainActivity : AppCompatActivity(), FeedListener {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        notificationWallpaperKey(intent)?.let { key ->
+            setIntent(intent)
+            currentTab = Tab.HOME
+            pendingPin = key
+            analyticsTracker.logEvent("notification_open", mapOf("wallpaper_key" to key))
+            binding.bottomNav.selectedItemId = R.id.nav_home
+            openPendingPin()
+            return
+        }
         val link = parseDeepLink(intent) ?: return
         when {
             link.savedTab != null -> {
@@ -240,6 +277,7 @@ class MainActivity : AppCompatActivity(), FeedListener {
         outState.putString(STATE_SIZE_FIT, sizeFilters.fit.name)
         outState.putBoolean(STATE_SIZE_UHD, sizeFilters.uhd)
         outState.putString(STATE_SAVED_TAB, savedTab.name)
+        outState.putBoolean(STATE_PENDING_NOTIFICATION_PERMISSION, pendingNotificationPermission)
         super.onSaveInstanceState(outState)
     }
 
@@ -881,6 +919,10 @@ class MainActivity : AppCompatActivity(), FeedListener {
         profile.accountSignOut.setOnClickListener { signOut() }
         profile.rowTheme.setOnClickListener { showThemeDialog() }
         profile.rowAutoWallpaper.setOnClickListener { handleAutoWallpaperAction() }
+        profile.switchNotifications.setOnCheckedChangeListener { _, enabled ->
+            if (updatingNotificationSubscription) return@setOnCheckedChangeListener
+            if (enabled) enableWallpaperNotifications() else disableWallpaperNotifications()
+        }
         profile.rowRunNow.setOnClickListener { runAutoWallpaperNow() }
         profile.rowCheckUpdate.setOnClickListener {
             analyticsTracker.logEvent("check_updates_manual")
@@ -895,10 +937,17 @@ class MainActivity : AppCompatActivity(), FeedListener {
             startActivity(Intent(Intent.ACTION_VIEW, playStoreUrl().toUri()))
         }
         profile.rowShare.setOnClickListener {
-            analyticsTracker.logEvent("nav_share_app")
+            analyticsTracker.logEvent(
+                "nav_share_app",
+                mapOf(
+                    "utm_source" to StoreCampaignLinks.APP_SHARE_SOURCE,
+                    "utm_medium" to StoreCampaignLinks.APP_SHARE_MEDIUM,
+                    "utm_campaign" to StoreCampaignLinks.APP_SHARE_CAMPAIGN
+                )
+            )
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, playStoreUrl())
+                putExtra(Intent.EXTRA_TEXT, StoreCampaignLinks.appShareUrl(packageName))
             }
             startActivity(Intent.createChooser(intent, getString(R.string.share_via)))
         }
@@ -960,6 +1009,76 @@ class MainActivity : AppCompatActivity(), FeedListener {
         val autoEnabled = AutoWallpaperManager.isEnabled(this)
         profile.switchAutoWallpaper.isChecked = autoEnabled
         profile.rowRunNow.isVisible = autoEnabled
+        renderNotificationSubscription()
+    }
+
+    private fun renderNotificationSubscription() {
+        if (!::binding.isInitialized) return
+        val enabled = getSharedPreferences(PREFS_NOTIFICATIONS, MODE_PRIVATE)
+            .getBoolean(KEY_WALLPAPER_NOTIFICATIONS_ENABLED, false)
+        updatingNotificationSubscription = true
+        binding.profile.switchNotifications.isChecked = enabled
+        updatingNotificationSubscription = false
+    }
+
+    private fun enableWallpaperNotifications() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingNotificationPermission = true
+            requestPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        subscribeToWallpaperNotifications()
+    }
+
+    private fun subscribeToWallpaperNotifications() {
+        updatingNotificationSubscription = true
+        binding.profile.switchNotifications.isEnabled = false
+        FirebaseMessaging.getInstance().subscribeToTopic(WALLPAPER_NOTIFICATIONS_TOPIC)
+            .addOnCompleteListener(this) { task ->
+                binding.profile.switchNotifications.isEnabled = true
+                updatingNotificationSubscription = false
+                if (task.isSuccessful) {
+                    getSharedPreferences(PREFS_NOTIFICATIONS, MODE_PRIVATE).edit {
+                        putBoolean(KEY_WALLPAPER_NOTIFICATIONS_ENABLED, true)
+                    }
+                    analyticsTracker.logEvent("wallpaper_notifications_enabled")
+                } else {
+                    Log.w(TAG, "Could not subscribe to wallpaper notifications", task.exception)
+                    Toast.makeText(this, R.string.notifications_update_failed, Toast.LENGTH_SHORT).show()
+                }
+                renderNotificationSubscription()
+            }
+    }
+
+    private fun disableWallpaperNotifications() {
+        updatingNotificationSubscription = true
+        binding.profile.switchNotifications.isEnabled = false
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(WALLPAPER_NOTIFICATIONS_TOPIC)
+            .addOnCompleteListener(this) { task ->
+                binding.profile.switchNotifications.isEnabled = true
+                updatingNotificationSubscription = false
+                if (task.isSuccessful) {
+                    getSharedPreferences(PREFS_NOTIFICATIONS, MODE_PRIVATE).edit {
+                        putBoolean(KEY_WALLPAPER_NOTIFICATIONS_ENABLED, false)
+                    }
+                    analyticsTracker.logEvent("wallpaper_notifications_disabled")
+                } else {
+                    Log.w(TAG, "Could not unsubscribe from wallpaper notifications", task.exception)
+                    Toast.makeText(this, R.string.notifications_update_failed, Toast.LENGTH_SHORT).show()
+                }
+                renderNotificationSubscription()
+            }
+    }
+
+    private fun notificationWallpaperKey(intent: Intent?): String? {
+        return FcmWallpaperTarget.key(
+            intent?.getStringExtra(WallAppMessagingService.EXTRA_WALLPAPER_KEY),
+            intent?.getStringExtra(WallAppMessagingService.EXTRA_CATEGORY),
+            intent?.getStringExtra(WallAppMessagingService.EXTRA_WALLPAPER_ID)
+        )
     }
 
     private fun showThemeDialog() {
@@ -1147,6 +1266,11 @@ class MainActivity : AppCompatActivity(), FeedListener {
         private const val ALL = "All"
         private const val POPULAR = "popular"
         private const val WEB_HOST = "wallapp.shubhamy.in"
+        private const val PREFS_NOTIFICATIONS = "notification_preferences"
+        private const val KEY_WALLPAPER_NOTIFICATIONS_ENABLED = "wallpaper_notifications_enabled"
+        private const val WALLPAPER_NOTIFICATIONS_TOPIC = "wallpaper_updates"
+        private const val STATE_PENDING_NOTIFICATION_PERMISSION = "pending_notification_permission"
+        private const val TAG = "MainActivity"
 
         /** First path segments that are website pages, not categories. */
         private val WEB_ONLY_PATHS = setOf("studio")

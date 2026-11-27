@@ -270,6 +270,52 @@
         android:text="@string/settings_section_app"
         android:textAppearance="@style/TextAppearance.App.SectionTitle" />
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="72dp"
+        android:orientation="horizontal"
+        android:paddingHorizontal="@dimen/screen_side_padding">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_stat_notification"
+            app:tint="@color/onSurface" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/wallpaper_notifications"
+                android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+                android:textColor="@color/onSurface" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/wallpaper_notifications_subtitle"
+                android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                android:textColor="@color/onSurfaceVariant" />
+
+        </LinearLayout>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_notifications"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp" />
+
+    </LinearLayout>
+
     <TextView
         android:id="@+id/row_check_update"
         style="@style/Widget.App.SettingsRow"
