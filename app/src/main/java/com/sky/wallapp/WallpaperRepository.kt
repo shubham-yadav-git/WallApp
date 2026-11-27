@@ -43,9 +43,9 @@ object WallpaperRepository {
         val allLoaded: Boolean
             get() = categories.isNotEmpty() && categories.all { it.path in loadedCategories }
 
-        val byKey: Map<String, Wallpaper> by lazy { records.associateBy { it.key } }
+        val byKey: Map<String, Wallpaper> = records.associateBy { it.key }
 
-        val hasPopular: Boolean by lazy { records.any { it.score > 0 } }
+        val hasPopular: Boolean = records.any { it.score > 0 }
     }
 
     private const val TAG = "WallpaperRepository"
@@ -66,6 +66,7 @@ object WallpaperRepository {
     private var snapshotResolved = false
     private var liveCategories: List<CategoryInfo> = emptyList()
     private var builtFor: Pair<List<CategoryInfo>, FeedSnapshot?>? = null
+    private var publishVersion = 0L
 
     private val byCategory = LinkedHashMap<String, List<Wallpaper>>()
     private val loaded = mutableSetOf<String>()
@@ -120,7 +121,8 @@ object WallpaperRepository {
 
         return withTimeoutOrNull(10_000) {
             suspendCancellableCoroutine { cont ->
-                database.getReference(path).child(id).addListenerForSingleValueEvent(object : ValueEventListener {
+                val reference = database.getReference(path).child(id)
+                val listener = object : ValueEventListener {
                     override fun onDataChange(snapshot: DataSnapshot) {
                         if (cont.isActive) cont.resume(Wallpaper.fromSnapshot(snapshot, path, path))
                     }
@@ -128,7 +130,9 @@ object WallpaperRepository {
                     override fun onCancelled(error: DatabaseError) {
                         if (cont.isActive) cont.resume(null)
                     }
-                })
+                }
+                reference.addListenerForSingleValueEvent(listener)
+                cont.invokeOnCancellation { reference.removeEventListener(listener) }
             }
         }
     }
@@ -239,12 +243,26 @@ object WallpaperRepository {
         listeners.clear()
     }
 
-    private fun publish(categories: List<CategoryInfo> = _state.value.categories) {
-        _state.value = State(
-            categories = categories,
-            records = categories.flatMap { byCategory[it.path].orEmpty() },
-            loadedCategories = loaded.toSet()
-        )
+    private fun publish(
+        categories: List<CategoryInfo> = liveCategories.ifEmpty {
+            snapshot?.categories?.map { CategoryInfo(it.first, it.second) }.orEmpty()
+        }
+    ) {
+        val version = ++publishVersion
+        val categorySnapshot = categories.toList()
+        val categoryRecords = categorySnapshot.map { byCategory[it.path].orEmpty() }
+        val loadedSnapshot = loaded.toSet()
+        scope.launch {
+            val nextState = withContext(Dispatchers.Default) {
+                State(
+                    categories = categorySnapshot,
+                    records = categoryRecords.flatten(),
+                    loadedCategories = loadedSnapshot
+                )
+            }
+            if (version != publishVersion) return@launch
+            _state.value = nextState
+        }
     }
 
     // ── feed.json ───────────────────────────────────────────────────────────────
